@@ -15,3 +15,7 @@ export interface OHLC extends HLC {
 export interface OHLCV extends OHLC {
   volume: number
 }
+// Open-High-Low-Close interface for candle data with timestamp
+export interface OHLCT extends OHLC {
+  timestamp: number
+}

@@ -108,3 +108,10 @@ export type OBFVGResult = {
   bearishFVGMiddle: number
   price: number
 }
+
+export type SessionsResult = {
+  inSession: boolean
+  sessionHigh: number
+  sessionLow: number
+  price: number
+}
