@@ -81,7 +81,7 @@ export class DIV extends LightIndicator<DIVResult, OHLCV> {
   private macd: MACD = new MACD(new EMA(12), new EMA(26), new EMA(9))
   private stoch = new StochasticOscillator(14, 3, 1)
   private rsi: RSI = new RSI(14)
-  private cci: CCI = new CCI(20, 'hlc3')
+  private cci: CCI = new CCI(10, 'close')
   private ao: AO = new AO(5, 34)
   private wr: WilliamsR = new WilliamsR(14)
   private uo: UltimateOscillator = new UltimateOscillator(7, 14, 28)
@@ -141,10 +141,10 @@ export class DIV extends LightIndicator<DIVResult, OHLCV> {
   }
 
   private plFound(lowArray: number[]) {
-    return !!this.pivotLowCalculator.calculate([...lowArray].reverse())
+    return !Number.isNaN(this.pivotLowCalculator.calculate(lowArray))
   }
   private phFound(highArray: number[]) {
-    return !!this.pivotHighCalculator.calculate([...highArray].reverse())
+    return !Number.isNaN(this.pivotHighCalculator.calculate(highArray))
   }
   private barssince(bool: boolean, type: string) {
     if (!bool) {
@@ -174,7 +174,9 @@ export class DIV extends LightIndicator<DIVResult, OHLCV> {
   }
   private _inRange(bool: boolean, type: string) {
     const bars = this.barssince(bool, `inRange${type}`)
-    return bars ? this.rangeLower <= bars && bars <= this.rangeUpper : false
+    return bars !== undefined
+      ? this.rangeLower <= bars && bars <= this.rangeUpper
+      : false
   }
   // Higher Low on indicator
   private oscHL(_osc: number[], _type: string) {
@@ -627,13 +629,13 @@ export class DIV extends LightIndicator<DIVResult, OHLCV> {
       this.export_barsSinceMap.set(key, value)
     }
     for (const [key, value] of this.valueWhenMap.entries()) {
-      this.export_valueWhenMap.set(key, value)
+      this.export_valueWhenMap.set(key, value.slice())
     }
     for (const [key, value] of this.pivotMap.entries()) {
-      this.export_pivotMap.set(key, value)
+      this.export_pivotMap.set(key, value.slice())
     }
     for (const [key, value] of this.oscHistoryMap.entries()) {
-      this.export_oscHistoryMap.set(key, value)
+      this.export_oscHistoryMap.set(key, value.slice())
     }
     return {
       bin: [],
@@ -679,13 +681,24 @@ export class DIV extends LightIndicator<DIVResult, OHLCV> {
       this.barsSinceMap.set(key, value)
     }
     for (const [key, value] of this.export_valueWhenMap.entries()) {
-      this.valueWhenMap.set(key, value)
+      const live = this.valueWhenMap.get(key) ?? fixedArray<number>(5)
+      live.length = 0
+      live.push(...value)
+      this.valueWhenMap.set(key, live)
     }
     for (const [key, value] of this.export_pivotMap.entries()) {
-      this.pivotMap.set(key, value)
+      const live = this.pivotMap.get(key) ?? fixedArray<boolean>(3)
+      live.length = 0
+      live.push(...value)
+      this.pivotMap.set(key, live)
     }
     for (const [key, value] of this.export_oscHistoryMap.entries()) {
-      this.oscHistoryMap.set(key, value)
+      const live =
+        this.oscHistoryMap.get(key) ??
+        fixedArray<number>(this.leftBars + this.rightBars + 1)
+      live.length = 0
+      live.push(...value)
+      this.oscHistoryMap.set(key, live)
     }
     super.restoreState(state.parent)
   }

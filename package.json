@@ -1,6 +1,6 @@
 {
   "name": "@gainium/indicators",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "description": "High-performance TypeScript technical indicators library for professional trading applications with 45+ indicators optimized for real-time systems",
   "keywords": [
     "technical-analysis",
