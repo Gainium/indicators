@@ -358,7 +358,7 @@ export function createIndicator(config: IndicatorConfig): any {
       return new LongWick(config.lwThreshold ?? 2, config.lwMaxDuration ?? 1000)
 
     case IndicatorEnum.mg:
-      return new McGinley(config.mgLength ?? 14)
+      return new McGinley(config.interval ?? 14)
 
     default:
       return null

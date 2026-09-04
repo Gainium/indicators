@@ -128,7 +128,7 @@ export type DivergenceOscillators =
 
 export type IndicatorConfig =
   | { type: IndicatorEnum.lw; lwThreshold: number; lwMaxDuration: number }
-  | { type: IndicatorEnum.mg; mgLength: number }
+  | { type: IndicatorEnum.mg; interval: number }
   | { type: IndicatorEnum.obfvg }
   | { type: IndicatorEnum.dc; length: number }
   | {
