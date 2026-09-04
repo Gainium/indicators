@@ -35,6 +35,7 @@ import {
   LongWick,
   MACD,
   MAR,
+  McGinley,
   MFI,
   MOM,
   OBFVG,
@@ -355,6 +356,9 @@ export function createIndicator(config: IndicatorConfig): any {
 
     case IndicatorEnum.lw:
       return new LongWick(config.lwThreshold ?? 2, config.lwMaxDuration ?? 1000)
+
+    case IndicatorEnum.mg:
+      return new McGinley(config.interval ?? 14)
 
     default:
       return null

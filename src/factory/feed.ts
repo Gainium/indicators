@@ -7,7 +7,8 @@
  *
  * Input-shape taxonomy (matching the live service):
  *   - `number` (volume)     → VO
- *   - `number` (close)       → RSI, MACD, EMA, DEMA, TEMA, RMA, SMA, WMA, HMA
+ *   - `number` (close)       → RSI, MACD, EMA, DEMA, TEMA, RMA, SMA, WMA, HMA,
+ *                              McGinley
  *   - `{high, low, close}`   → ADX, Stoch, CCI, StochRSI, WR, UO, IC,
  *                              SupportResistance, QFL, PSAR, SuperTrend,
  *                              ATR, PriorPivot, ADR, ATH
@@ -44,6 +45,7 @@ import { KeltnerChannelPB } from '../KCPB/KCPB'
 import { LongWick } from '../LongWick/LongWick'
 import { MACD } from '../MACD/MACD'
 import { MAR } from '../MAR/MAR'
+import { McGinley } from '../McGinley/McGinley'
 import { MFI } from '../MFI/MFI'
 import { MOM } from '../MOM/MOM'
 import { OBFVG } from '../OBFVG/OBFVG'
@@ -100,7 +102,8 @@ export function feedCandle(indicator: any, candle: FeedCandle): void {
     indicator instanceof RMA ||
     indicator instanceof SMA ||
     indicator instanceof WMA ||
-    indicator instanceof HMA
+    indicator instanceof HMA ||
+    indicator instanceof McGinley
   ) {
     indicator.next(candle.c)
     return
