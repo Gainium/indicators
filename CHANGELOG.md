@@ -5,6 +5,15 @@ All notable changes to the Gainium Technical Indicators library will be document
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-09-04
+
+### Added
+
+- **McGinley Dynamic** (`IndicatorEnum.mg = 'MG'`) — a self-adjusting moving
+  average that speeds up in fast markets and slows down in flat ones.
+  `src/McGinley/McGinley.ts`, registered in the factory
+  (`create`/`warmup`/`feed`).
+
 ## [1.3.2] - 2026-09-03
 
 ### Added
