@@ -8,9 +8,27 @@
  * Values match the service's `this.length = …` assignments exactly.
  */
 
-import { IndicatorConfig, IndicatorEnum, MAEnum } from '../types/config'
+import {
+  IndicatorConfig,
+  IndicatorEnum,
+  MAEnum,
+  Smoothing,
+} from '../types/config'
+import {
+  getSmoothingWarmup,
+  isSmoothableIndicator,
+} from '../Smoothing/Smoothing'
 
 export function getWarmupCandles(config: IndicatorConfig): number {
+  const base = getBaseWarmupCandles(config)
+  if (!isSmoothableIndicator(config.type)) {
+    return base
+  }
+  const { smoothing, smoothingLength } = config as Smoothing
+  return base + getSmoothingWarmup(smoothing, smoothingLength)
+}
+
+function getBaseWarmupCandles(config: IndicatorConfig): number {
   // Helpers to keep the switch compact.
   const pct = (c: { percentileLookback?: number }): number =>
     +(c.percentileLookback ?? '0')

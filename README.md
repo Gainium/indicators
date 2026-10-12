@@ -103,6 +103,13 @@ newSuperTrend.restoreState(state);
 - **RMA** - Running Moving Average
 
 ### 📊 Oscillators & Momentum
+
+Single-line oscillators (RSI, CCI, MFI, WR, UO, MOM, AO, ADX, BBPB, KCPB, BBW,
+VO, MAR) can be smoothed through the factory:
+`createIndicator({ type: IndicatorEnum.rsi, interval: 14, smoothing: 'ema', smoothingLength: 14 })`
+returns a `SmoothedIndicator` whose `value` is the smoothed line and `raw` the
+oscillator's own value (feed it with `feedCandle`).
+
 - **RSI** - Relative Strength Index
 - **STOCH** - Stochastic Oscillator
 - **StochasticRSI** - Stochastic RSI

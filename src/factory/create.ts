@@ -61,8 +61,15 @@ import {
   IndicatorConfig,
   IndicatorEnum,
   MAEnum,
+  Percentile,
   RangeType,
+  Smoothing,
 } from '../types/config'
+import {
+  SmoothedIndicator,
+  isSmoothableIndicator,
+  resolveSmoothing,
+} from '../Smoothing/Smoothing'
 
 /**
  * Constructs the indicator described by `config`. Returns `null` if the
@@ -71,6 +78,29 @@ import {
  */
 
 export function createIndicator(config: IndicatorConfig): any {
+  const smoothing = isSmoothableIndicator(config.type)
+    ? resolveSmoothing(
+        (config as Smoothing).smoothing,
+        (config as Smoothing).smoothingLength,
+      )
+    : null
+  if (!smoothing) {
+    return createBaseIndicator(config)
+  }
+  // The oscillator is built without percentile; the wrapper smooths its main
+  // line and ranks the smoothed line instead.
+  const pct = config as Percentile
+  return new SmoothedIndicator(
+    createBaseIndicator({ ...config, percentile: false } as IndicatorConfig),
+    smoothing,
+    pct.percentile,
+    +(pct.percentileLookback ?? '0'),
+    +(pct.percentilePercentage ?? '0'),
+  )
+}
+
+/** The unsmoothed indicator for `config` (smoothing fields ignored). */
+function createBaseIndicator(config: IndicatorConfig): any {
   switch (config.type) {
     case IndicatorEnum.st:
       return new SuperTrend(config.factor, config.atrLength)

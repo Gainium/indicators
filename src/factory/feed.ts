@@ -65,6 +65,7 @@ import { VO } from '../VO/VO'
 import { VWMA } from '../VWMA/VWMA'
 import { WMA } from '../WMA/WMA'
 import { WilliamsR } from '../WR/WR'
+import { unwrapSmoothed } from '../Smoothing/Smoothing'
 
 /** OHLCV candle — the superset of every indicator input shape we support. */
 export interface FeedCandle {
@@ -83,11 +84,18 @@ export interface FeedCandle {
 
 export function feedCandle(indicator: any, candle: FeedCandle): void {
   if (!indicator) return
+  // A smoothed oscillator takes the input of the oscillator it wraps.
+  const input = candleInput(unwrapSmoothed(indicator), candle)
+  if (input !== undefined) {
+    indicator.next(input)
+  }
+}
 
+/** The input `indicator` expects for `candle`, or undefined if unknown. */
+function candleInput(indicator: any, candle: FeedCandle): unknown {
   // Volume-only
   if (indicator instanceof VO) {
-    indicator.next(candle.v)
-    return
+    return candle.v
   }
 
   // Close-only (numeric)
@@ -102,8 +110,7 @@ export function feedCandle(indicator: any, candle: FeedCandle): void {
     indicator instanceof WMA ||
     indicator instanceof HMA
   ) {
-    indicator.next(candle.c)
-    return
+    return candle.c
   }
 
   // HLC
@@ -124,8 +131,7 @@ export function feedCandle(indicator: any, candle: FeedCandle): void {
     indicator instanceof ADR ||
     indicator instanceof ATH
   ) {
-    indicator.next({ high: candle.h, low: candle.l, close: candle.c })
-    return
+    return { high: candle.h, low: candle.l, close: candle.c }
   }
 
   // OHLC
@@ -137,13 +143,12 @@ export function feedCandle(indicator: any, candle: FeedCandle): void {
     indicator instanceof OBFVG ||
     indicator instanceof LongWick
   ) {
-    indicator.next({
+    return {
       open: candle.o,
       high: candle.h,
       low: candle.l,
       close: candle.c,
-    })
-    return
+    }
   }
 
   // OHLCV
@@ -161,21 +166,20 @@ export function feedCandle(indicator: any, candle: FeedCandle): void {
     indicator instanceof DIV ||
     indicator instanceof PC
   ) {
-    indicator.next({
+    return {
       open: candle.o,
       high: candle.h,
       low: candle.l,
       close: candle.c,
       volume: candle.v,
-    })
-    return
+    }
   }
 
   // HL
   if (indicator instanceof AO) {
-    indicator.next({ high: candle.h, low: candle.l })
-    return
+    return { high: candle.h, low: candle.l }
   }
 
   // Unknown shape — do nothing. Caller will see `indicator.result` stay null.
+  return undefined
 }

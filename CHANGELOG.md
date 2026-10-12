@@ -5,6 +5,43 @@ All notable changes to the Gainium Technical Indicators library will be document
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2026-10-12
+
+### Added
+
+- **Optional smoothing of single-line oscillators.** The configs of `RSI`,
+  `CCI`, `MFI`, `WilliamsR` (`WR`), `UltimateOscillator` (`UO`), `MOM`,
+  `AO`, `ADX`, `BBPB`, `KeltnerChannelPB` (`KCPB`), `BollingerBandsWidth`
+  (`BBW`), `VO` and `MAR` accept `smoothing` (`'sma' | 'ema' | 'wma' |
+  'dema' | 'tema' | 'hma' | 'rma'`, case-insensitive) and `smoothingLength`
+  (1 to 1000). When both are set, `createIndicator` returns a
+  `SmoothedIndicator`: the oscillator, built without percentile, feeds its
+  `value` through that moving average (the library's own classes). The
+  result's `value` is the smoothed line, the new `raw` field is the
+  oscillator's own value on the same bar, percentile mode ranks the smoothed
+  line, and a `trend` reported by the oscillator (MAR trend filter) is passed
+  through. Nothing is emitted until the average has warmed up. A missing,
+  `'none'`, `'vwma'`, `'price'` or unrecognised type, or a missing, zero or
+  out-of-range length, leaves smoothing off. Other indicator types ignore
+  the fields.
+- `getWarmupCandles` adds the average's run-up for those types: one length
+  for SMA/EMA/WMA/RMA, two for DEMA, three for TEMA,
+  `length + ceil(length / 2) + ceil(sqrt(length))` for HMA.
+- `feedCandle` feeds a `SmoothedIndicator` the input of the oscillator it
+  wraps.
+- New exports: `SmoothedIndicator`, `SmoothedResult`, `Smoothing`,
+  `SmoothingType`, `SmoothingConfig`, `SMOOTHING_TYPES`,
+  `SMOOTHING_MAX_LENGTH`, `SMOOTHABLE_INDICATORS`, `isSmoothableIndicator()`,
+  `resolveSmoothing()`, `getSmoothingWarmup()`, `createSmoother()` and
+  `unwrapSmoothed()`.
+
+### Unchanged
+
+- With smoothing off, `createIndicator` returns the same oscillator as
+  before; output series, exported state and warm-up are identical (pinned by
+  golden results recorded from 1.4.0 for every type above). The oscillator
+  classes themselves are not modified.
+
 ## [1.4.0] - 2026-09-19
 
 ### Fixed
