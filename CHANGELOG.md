@@ -5,6 +5,19 @@ All notable changes to the Gainium Technical Indicators library will be document
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0] - 2026-10-23
+
+### Added
+
+- **Session hours.** `isInSession(timestamp, days, rule, hours?)` takes an
+  optional `{ start, end, timezone }` window: local `HH:MM` times in an IANA
+  time zone (default `UTC`), so a session keeps its local clock across
+  daylight saving. `end` before `start` is an overnight session whose
+  after-midnight part belongs to the day it opened, and the weekday is read
+  in the session's zone. Without hours (or with invalid or equal times) the
+  whole day counts, exactly as before. An unknown zone falls back to UTC.
+- `parseSessionTime` and `zonedDayAndMinutes` helpers.
+
 ## [1.5.0] - 2026-10-12
 
 ### Added
