@@ -46,6 +46,8 @@ import {
   RMA,
   RSI,
   SMA,
+  SessionLevels,
+  SessionRuleEnum,
   StochasticOscillator,
   StochasticRSI,
   SuperTrend,
@@ -389,6 +391,17 @@ function createBaseIndicator(config: IndicatorConfig): any {
 
     case IndicatorEnum.ote:
       return new OTELevels(config.oteLeftBars ?? 10, config.oteMinLegSize ?? 1)
+
+    case IndicatorEnum.session:
+      // In / out sessions are clock filters, not indicators.
+      if (config.sessionRule !== SessionRuleEnum.levels) {
+        return null
+      }
+      return new SessionLevels(config.sessionDays ?? [1, 2, 3, 4, 5], {
+        start: config.sessionStart,
+        end: config.sessionEnd,
+        timezone: config.sessionTimezone,
+      })
 
     default:
       return null

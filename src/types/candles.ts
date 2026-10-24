@@ -15,3 +15,5 @@ export interface OHLC extends HLC {
 export interface OHLCV extends OHLC {
   volume: number
 }
+// OHLC with the candle's OPEN time (ms since epoch)
+export type OHLCT = OHLC & { time: number }

@@ -5,6 +5,36 @@ All notable changes to the Gainium Technical Indicators library will be document
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.0] - 2026-10-24
+
+### Added
+
+- **Session price levels (`SessionLevels`, `SessionRuleEnum.levels`).** For
+  the Session indicator's new Price levels rule: groups candles into
+  sessions by their open time (same window as `isInSession` with rule `in`)
+  and reports the open, high, low, close and midpoint of the last completed
+  session, the open of the session in progress (NaN outside a session), the
+  latest close, `inSession` (1 / 0) and the current and previous session
+  keys. A session already in progress when the data starts is never used as
+  the previous session. Input is `OHLCT` (OHLC + candle open time in ms).
+  Registered in `createIndicator` (only for `sessionRule: 'levels'`; the
+  in / out rules stay factory-less clock filters), `getWarmupCandles` (1500)
+  and `feedCandle`.
+- `FeedCandle.t` — optional candle open time (ms). `SessionLevels` reads it
+  to group candles; a candle without it updates the price but belongs to no
+  session.
+- `sessionKey(timestamp, days, hours)` — `yyyymmdd` of the local day a
+  session opened, or `null` outside the window. `isInSession` is now
+  expressed on top of it, with unchanged results.
+- `SessionLevelEnum` and `sessionLevelValue(result, level)` — the values a
+  Price levels condition compares (`prevOpen`, `prevHigh`, `prevMid`,
+  `prevLow`, `prevClose`, `curOpen`, `price`).
+- `sessionLevelsCondition(last, prev, { a, b, condition })` — the
+  bot-condition decision (`gt`, `lt`, `cu`, `cd`), shared by the live engine
+  and the backtester. False outside the session, for a missing value or
+  A = B; a crossing only counts when both bars are in the same session and
+  see the same previous session.
+
 ## [1.7.0] - 2026-10-24
 
 ### Added

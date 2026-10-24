@@ -1,6 +1,32 @@
+import { LightIndicator } from '../util/indicator'
+import { lastIndexOfEnum, ohlctValue } from '../util'
+import { OHLCT } from '../types/candles'
+import { SessionLevelsResult } from '../types/result'
+import { gt, gte, lt, lte } from '../util/math'
+
 export enum SessionRuleEnum {
   in = 'in',
   out = 'out',
+  /** Price levels: compare two session levels (see `SessionLevels`) */
+  levels = 'levels',
+}
+
+/** A value a Price levels condition can read (see `sessionLevelValue`). */
+export enum SessionLevelEnum {
+  /** open of the first candle of the last completed session */
+  prevOpen = 'prevOpen',
+  /** highest high of the last completed session */
+  prevHigh = 'prevHigh',
+  /** (prevHigh + prevLow) / 2 */
+  prevMid = 'prevMid',
+  /** lowest low of the last completed session */
+  prevLow = 'prevLow',
+  /** close of the last candle of the last completed session */
+  prevClose = 'prevClose',
+  /** open of the first candle of the session in progress; none outside it */
+  curOpen = 'curOpen',
+  /** close of the latest candle */
+  price = 'price',
 }
 
 /**
@@ -36,6 +62,9 @@ function formatterFor(timezone: string): Intl.DateTimeFormat | null {
         new Intl.DateTimeFormat('en-US', {
           timeZone: timezone,
           weekday: 'short',
+          year: 'numeric',
+          month: 'numeric',
+          day: 'numeric',
           hour: '2-digit',
           minute: '2-digit',
           hourCycle: 'h23',
@@ -59,29 +88,95 @@ export function parseSessionTime(value?: string | null): number | null {
   return hours * 60 + minutes
 }
 
-/** Local weekday (0 = Sunday) and minutes after midnight in `timezone`. */
-export function zonedDayAndMinutes(
-  timestamp: number,
-  timezone?: string | null,
-): { day: number; minutes: number } {
+/** Local calendar date, weekday and minutes after midnight. */
+type ZonedParts = {
+  year: number
+  month: number
+  date: number
+  day: number
+  minutes: number
+}
+
+function zonedParts(timestamp: number, timezone?: string | null): ZonedParts {
   const formatter =
     timezone && timezone !== 'UTC' ? formatterFor(timezone) : null
   if (!formatter) {
     const date = new Date(timestamp)
     return {
+      year: date.getUTCFullYear(),
+      month: date.getUTCMonth() + 1,
+      date: date.getUTCDate(),
       day: date.getUTCDay(),
       minutes: date.getUTCHours() * 60 + date.getUTCMinutes(),
     }
   }
-  let day = 0
+  const out: ZonedParts = { year: 0, month: 0, date: 0, day: 0, minutes: 0 }
   let hour = 0
   let minute = 0
   for (const part of formatter.formatToParts(timestamp)) {
-    if (part.type === 'weekday') day = WEEKDAYS[part.value] ?? 0
+    if (part.type === 'weekday') out.day = WEEKDAYS[part.value] ?? 0
+    else if (part.type === 'year') out.year = +part.value
+    else if (part.type === 'month') out.month = +part.value
+    else if (part.type === 'day') out.date = +part.value
     else if (part.type === 'hour') hour = +part.value
     else if (part.type === 'minute') minute = +part.value
   }
-  return { day, minutes: hour * 60 + minute }
+  out.minutes = hour * 60 + minute
+  return out
+}
+
+/** Local weekday (0 = Sunday) and minutes after midnight in `timezone`. */
+export function zonedDayAndMinutes(
+  timestamp: number,
+  timezone?: string | null,
+): { day: number; minutes: number } {
+  const { day, minutes } = zonedParts(timestamp, timezone)
+  return { day, minutes }
+}
+
+/** `yyyymmdd` of a calendar date; `date` may run over the month either way. */
+const dateKey = (year: number, month: number, date: number): number => {
+  const d = new Date(Date.UTC(year, month - 1, date))
+  return (
+    d.getUTCFullYear() * 10000 + (d.getUTCMonth() + 1) * 100 + d.getUTCDate()
+  )
+}
+
+/**
+ * The session `timestamp` belongs to, or null when it is outside the
+ * session window. The key is the local calendar date (in the session's time
+ * zone) of the day the session opened, as `yyyymmdd`: the after-midnight
+ * part of an overnight session carries the key of the day before, and with
+ * no time-of-day window every selected day is its own session.
+ * @param timestamp - Unix timestamp in milliseconds
+ * @param days - Array of day numbers (0=Sunday, 1=Monday, ..., 6=Saturday)
+ * @param hours - optional time-of-day window; without it the whole day counts
+ */
+export function sessionKey(
+  timestamp: number,
+  days: number[],
+  hours?: SessionHours | null,
+): number | null {
+  const start = parseSessionTime(hours?.start)
+  const end = parseSessionTime(hours?.end)
+  const { year, month, date, day, minutes } = zonedParts(
+    timestamp,
+    hours?.timezone,
+  )
+  let opened = date
+  if (start === null || end === null || start === end) {
+    if (!days.includes(day)) return null
+  } else if (start < end) {
+    if (!(minutes >= start && minutes < end && days.includes(day))) return null
+  } else if (minutes >= start) {
+    if (!days.includes(day)) return null
+  } else if (minutes < end) {
+    if (!days.includes((day + 6) % 7)) return null
+    opened = date - 1
+  } else {
+    return null
+  }
+  return dateKey(year, month, opened)
 }
 
 /**
@@ -97,20 +192,236 @@ export function isInSession(
   rule: SessionRuleEnum | string,
   hours?: SessionHours | null,
 ): boolean {
-  const start = parseSessionTime(hours?.start)
-  const end = parseSessionTime(hours?.end)
-  const { day, minutes } = zonedDayAndMinutes(timestamp, hours?.timezone)
-  let inside: boolean
-  if (start === null || end === null || start === end) {
-    inside = days.includes(day)
-  } else if (start < end) {
-    inside = minutes >= start && minutes < end && days.includes(day)
-  } else if (minutes >= start) {
-    inside = days.includes(day)
-  } else if (minutes < end) {
-    inside = days.includes((day + 6) % 7)
-  } else {
-    inside = false
-  }
+  const inside = sessionKey(timestamp, days, hours) !== null
   return rule === SessionRuleEnum.out ? !inside : inside
+}
+
+enum SessionLevelsState {
+  SEEN = 0, // 1 once a candle with a time has been fed
+  CUR_KEY = 1, // key of the session in progress, NaN outside one
+  CUR_FULL = 2, // 1 when the session in progress was seen from its first candle
+  CUR_OPEN = 3,
+  CUR_HIGH = 4,
+  CUR_LOW = 5,
+  CUR_CLOSE = 6,
+  PREV_KEY = 7, // key of the last completed session, NaN until there is one
+  PREV_OPEN = 8,
+  PREV_HIGH = 9,
+  PREV_LOW = 10,
+  PREV_CLOSE = 11,
+}
+
+/**
+ * Session price levels
+ * Type: Time / Price Level Indicator
+ *
+ * Groups candles into sessions and reports the open, high, low, close and
+ * midpoint of the last completed session, the open of the session in
+ * progress and the latest close (see `SessionLevelsResult`).
+ *
+ * - A candle belongs to a session when its OPEN time is inside the session
+ *   window — the same window as `isInSession` with rule `in`: `days`, an
+ *   optional local `HH:MM` time-of-day window in an IANA time zone, overnight
+ *   sessions belonging to the day they open, and every day its own session
+ *   without a time-of-day window.
+ * - Two in-session candles are the same session when they have the same
+ *   `sessionKey`. A session is completed when a candle arrives outside it
+ *   (outside the window, or with a different key); it then becomes the
+ *   previous session.
+ * - The first session fed is only counted once it is known to be whole: if
+ *   the very first candle with a time is already inside a session, that
+ *   session may have opened before the data starts, so it never becomes the
+ *   previous session (the `prev*` levels stay NaN until the next one ends).
+ * - A candle without a usable `time` is not grouped: it updates `price`
+ *   only, leaves every session untouched and reports `inSession` 0.
+ *
+ * Candle Input Type: OHLCT (OHLC + candle open time in ms)
+ */
+export class SessionLevels extends LightIndicator<SessionLevelsResult, OHLCT> {
+  private readonly days: number[]
+  private readonly hours: SessionHours | null
+
+  /**
+   * @param days - session weekdays (0=Sunday, 1=Monday, ..., 6=Saturday)
+   * @param hours - optional time-of-day window; without it the whole day counts
+   */
+  constructor(days: number[], hours?: SessionHours | null) {
+    super(1, ohlctValue, lastIndexOfEnum(SessionLevelsState), NaN)
+    this.days = (days ?? []).map(Number)
+    this.hours = hours ?? null
+    this._state[SessionLevelsState.SEEN] = 0
+    this._state[SessionLevelsState.CUR_FULL] = 0
+  }
+
+  /** Close the session in progress; a whole one becomes the previous session. */
+  private complete() {
+    const s = this._state
+    if (s[SessionLevelsState.CUR_FULL] === 1) {
+      s[SessionLevelsState.PREV_KEY] = s[SessionLevelsState.CUR_KEY]
+      s[SessionLevelsState.PREV_OPEN] = s[SessionLevelsState.CUR_OPEN]
+      s[SessionLevelsState.PREV_HIGH] = s[SessionLevelsState.CUR_HIGH]
+      s[SessionLevelsState.PREV_LOW] = s[SessionLevelsState.CUR_LOW]
+      s[SessionLevelsState.PREV_CLOSE] = s[SessionLevelsState.CUR_CLOSE]
+    }
+    s[SessionLevelsState.CUR_KEY] = NaN
+    s[SessionLevelsState.CUR_FULL] = 0
+    s[SessionLevelsState.CUR_OPEN] = NaN
+    s[SessionLevelsState.CUR_HIGH] = NaN
+    s[SessionLevelsState.CUR_LOW] = NaN
+    s[SessionLevelsState.CUR_CLOSE] = NaN
+  }
+
+  protected calculate(): SessionLevelsResult | null {
+    const candle = this._history.last
+    const s = this._state
+    const time = candle.time
+    const timed = typeof time === 'number' && isFinite(time)
+    if (timed) {
+      const key = sessionKey(time, this.days, this.hours) ?? NaN
+      if (!isNaN(key) && key === s[SessionLevelsState.CUR_KEY]) {
+        s[SessionLevelsState.CUR_HIGH] = Math.max(
+          s[SessionLevelsState.CUR_HIGH],
+          candle.high,
+        )
+        s[SessionLevelsState.CUR_LOW] = Math.min(
+          s[SessionLevelsState.CUR_LOW],
+          candle.low,
+        )
+        s[SessionLevelsState.CUR_CLOSE] = candle.close
+      } else {
+        if (!isNaN(s[SessionLevelsState.CUR_KEY])) {
+          this.complete()
+        }
+        if (!isNaN(key)) {
+          s[SessionLevelsState.CUR_KEY] = key
+          s[SessionLevelsState.CUR_FULL] = s[SessionLevelsState.SEEN]
+          s[SessionLevelsState.CUR_OPEN] = candle.open
+          s[SessionLevelsState.CUR_HIGH] = candle.high
+          s[SessionLevelsState.CUR_LOW] = candle.low
+          s[SessionLevelsState.CUR_CLOSE] = candle.close
+        }
+      }
+      s[SessionLevelsState.SEEN] = 1
+    }
+    const inSession = timed && !isNaN(s[SessionLevelsState.CUR_KEY])
+    const prevHigh = s[SessionLevelsState.PREV_HIGH]
+    const prevLow = s[SessionLevelsState.PREV_LOW]
+    return {
+      prevOpen: s[SessionLevelsState.PREV_OPEN],
+      prevHigh,
+      prevMid: (prevHigh + prevLow) / 2,
+      prevLow,
+      prevClose: s[SessionLevelsState.PREV_CLOSE],
+      curOpen: inSession ? s[SessionLevelsState.CUR_OPEN] : NaN,
+      price: candle.close,
+      inSession: inSession ? 1 : 0,
+      sessionKey: inSession ? s[SessionLevelsState.CUR_KEY] : NaN,
+      prevSessionKey: s[SessionLevelsState.PREV_KEY],
+    }
+  }
+}
+
+// Results that went through JSON carry null where the indicator wrote NaN.
+const num = (v: number | null | undefined): number =>
+  v === null || v === undefined ? NaN : +v
+
+/** The value of `level` in a `SessionLevels` result; NaN when it has none. */
+export const sessionLevelValue = (
+  result: SessionLevelsResult | null | undefined,
+  level: SessionLevelEnum | string,
+): number => {
+  if (!result) {
+    return NaN
+  }
+  switch (level) {
+    case SessionLevelEnum.prevOpen:
+      return num(result.prevOpen)
+    case SessionLevelEnum.prevHigh:
+      return num(result.prevHigh)
+    case SessionLevelEnum.prevMid:
+      return num(result.prevMid)
+    case SessionLevelEnum.prevLow:
+      return num(result.prevLow)
+    case SessionLevelEnum.prevClose:
+      return num(result.prevClose)
+    case SessionLevelEnum.curOpen:
+      return num(result.curOpen)
+    case SessionLevelEnum.price:
+      return num(result.price)
+    default:
+      return NaN
+  }
+}
+
+export type SessionLevelsConditionSettings = {
+  /** left operand; missing = price */
+  a?: SessionLevelEnum | string
+  /** right operand; missing = prevHigh */
+  b?: SessionLevelEnum | string
+  /** 'cd' | 'cu' | 'gt' | 'lt'; missing = 'cu' */
+  condition?: string
+}
+
+/** Both keys are the same session, treating "none" (NaN) as equal to "none". */
+const sameKey = (a: number, b: number) => a === b || (isNaN(a) && isNaN(b))
+
+/**
+ * The bot-condition decision of the Session "Price levels" rule, shared by
+ * the live engine and the backtester so both fire on the same bars. `last`
+ * is the newest bar, `prev` the one before it (only needed for crossings).
+ *
+ * - False outside the session (`last.inSession` is not 1).
+ * - False when either operand has no value (NaN / null) or A and B are the
+ *   same field.
+ * - `gt` / `lt`: A is above / below B on `last`.
+ * - `cd` / `cu`: A crossed down / up through B between `prev` and `last`
+ *   (touching counts on `last`), and only when both bars are in the SAME
+ *   session and see the SAME previous session — the levels jumping because a
+ *   new session started is not a crossing.
+ */
+export const sessionLevelsCondition = (
+  last: SessionLevelsResult | null | undefined,
+  prev: SessionLevelsResult | null | undefined,
+  settings: SessionLevelsConditionSettings,
+): boolean => {
+  if (!last || num(last.inSession) !== 1) {
+    return false
+  }
+  const a = settings.a ?? SessionLevelEnum.price
+  const b = settings.b ?? SessionLevelEnum.prevHigh
+  if (a === b) {
+    return false
+  }
+  const lastA = sessionLevelValue(last, a)
+  const lastB = sessionLevelValue(last, b)
+  if (isNaN(lastA) || isNaN(lastB)) {
+    return false
+  }
+  const condition = settings.condition ?? 'cu'
+  if (condition === 'gt') {
+    return gt(lastA, lastB)
+  }
+  if (condition === 'lt') {
+    return lt(lastA, lastB)
+  }
+  if (condition !== 'cd' && condition !== 'cu') {
+    return false
+  }
+  if (
+    !prev ||
+    num(prev.inSession) !== 1 ||
+    isNaN(num(last.sessionKey)) ||
+    num(prev.sessionKey) !== num(last.sessionKey) ||
+    !sameKey(num(prev.prevSessionKey), num(last.prevSessionKey))
+  ) {
+    return false
+  }
+  const prevA = sessionLevelValue(prev, a)
+  const prevB = sessionLevelValue(prev, b)
+  if (isNaN(prevA) || isNaN(prevB)) {
+    return false
+  }
+  return condition === 'cd'
+    ? gt(prevA, prevB) && lte(lastA, lastB)
+    : lt(prevA, prevB) && gte(lastA, lastB)
 }

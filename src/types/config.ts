@@ -1,5 +1,6 @@
 import { DEMA } from '../DEMA/DEMA'
 import { EMA } from '../EMA/EMA'
+import { SessionRuleEnum } from '../Session/Session'
 
 // ─── Existing: MACDConfig (kept for backwards compatibility with earlier
 //     consumers that imported it directly) ─────────────────────────────────
@@ -140,6 +141,16 @@ export type DivergenceOscillators =
 export type IndicatorConfig =
   | { type: IndicatorEnum.lw; lwThreshold: number; lwMaxDuration: number }
   | { type: IndicatorEnum.ote; oteLeftBars: number; oteMinLegSize: number }
+  | {
+      // Only the Price levels rule has an indicator instance; the in / out
+      // rules are pure clock filters (`isInSession`) with no factory entry.
+      type: IndicatorEnum.session
+      sessionRule: SessionRuleEnum.levels | 'levels'
+      sessionDays: number[]
+      sessionStart?: string
+      sessionEnd?: string
+      sessionTimezone?: string
+    }
   | { type: IndicatorEnum.obfvg }
   | { type: IndicatorEnum.dc; length: number }
   | {

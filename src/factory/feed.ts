@@ -13,6 +13,9 @@
  *                              ATR, PriorPivot, ADR, ATH
  *   - `{open, high, low, close}` → BullBear, MOM, ECD, DonchianChannels,
  *                                  OBFVG, LongWick, OTELevels
+ *   - `{open, high, low, close, time}` → SessionLevels (`time` = `t`; a
+ *                                        candle without `t` is not grouped
+ *                                        into any session)
  *   - `{open, high, low, close, volume}` → VWMA, TVTA, MFI, BBW, BB, KC,
  *                                          KCPB, BBWP, BBPB, MAR, DIV, PC
  *   - `{high, low}`          → AO
@@ -55,6 +58,7 @@ import { QFL } from '../QFL/QFL'
 import { RMA } from '../RMA/RMA'
 import { RSI } from '../RSI/RSI'
 import { SMA } from '../SMA/SMA'
+import { SessionLevels } from '../Session/Session'
 import { StochasticOscillator } from '../STOCH/StochasticOscillator'
 import { StochasticRSI } from '../STOCH/StochasticRSI'
 import { SuperTrend } from '../SuperTrend/SuperTrend'
@@ -75,6 +79,12 @@ export interface FeedCandle {
   l: number
   c: number
   v: number
+  /**
+   * Candle OPEN time, ms since epoch. Only `SessionLevels` reads it, to group
+   * candles into sessions; without it the candle updates the latest price
+   * but belongs to no session. Callers that have the time must pass it.
+   */
+  t?: number
 }
 
 /**
@@ -150,6 +160,17 @@ function candleInput(indicator: any, candle: FeedCandle): unknown {
       high: candle.h,
       low: candle.l,
       close: candle.c,
+    }
+  }
+
+  // OHLC + open time
+  if (indicator instanceof SessionLevels) {
+    return {
+      open: candle.o,
+      high: candle.h,
+      low: candle.l,
+      close: candle.c,
+      time: candle.t ?? NaN,
     }
   }
 
