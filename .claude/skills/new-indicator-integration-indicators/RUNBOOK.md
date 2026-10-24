@@ -18,11 +18,13 @@ vs-filter decided, not a duplicate/alias of something existing).
 [ ] src/types/config.ts    (IndicatorEnum entry; IndicatorConfig union member — skip member for a filter)
 [ ] src/factory/create.ts  (case branch — skip for a filter)
 [ ] src/factory/warmup.ts  (case branch — skip for a filter)
-[ ] src/factory/feed.ts    (only if input shape isn't already dispatched)
+[ ] src/factory/feed.ts    (ALWAYS for a class: add it to its shape's instanceof list)
 [ ] src/index.ts           (export)
+[ ] (recommended) the bot-condition decision as an exported pure function
+[ ] test/<name>.spec.ts    (scenarios, warmup, state round trip, factory)
 [ ] package.json + CHANGELOG.md
-[ ] npm run build && npm run lint
-[ ] publish/tag the version
+[ ] npm test && npm run build && npm run lint
+[ ] push (consumers pin the sha)
 ```
 
 ## Verify before calling it done

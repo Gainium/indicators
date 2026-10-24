@@ -40,13 +40,25 @@ enough**:
 | `src/types/config.ts` → `IndicatorConfig` union | discriminated member |
 | `src/factory/create.ts` | import the class + `case IndicatorEnum.<x>: return new <Class>(…)` |
 | `src/factory/warmup.ts` | `case IndicatorEnum.<x>: return <N>` — candles needed before the result is trustworthy |
-| `src/factory/feed.ts` | only if your input shape isn't already dispatched (OHLC/HLC/OHLCV/number/HL are covered) |
+| `src/factory/feed.ts` | **always** — add the class to the `instanceof` list of its input shape. Dispatch is per class: a class missing here makes `feedCandle()` a silent no-op |
 | `src/index.ts` | `export * from './<Name>/<Name>'` |
+| `test/<name>.spec.ts` | hand-traced candle scenarios, warmup, `exportState`/`restoreState` round trip, factory create/warmup/feed |
 | `package.json` + `CHANGELOG.md` | bump version, changelog line |
 
 > **Forgetting the factory is the #1 footgun**: the class compiles and
-> exports, but `createIndicator()` never returns it, so main-app and the
-> backtester silently can't use it.
+> exports, but `createIndicator()` never returns it (or `feedCandle()`
+> never feeds it), so main-app and market-archive silently can't use it.
+
+**Recommended: export the bot-condition decision too.** main-app and the
+backtester each implement every condition's decision separately. For a new
+indicator, export it from here as a pure `(last, prev, settings) =>
+boolean` (tolerating `null` where JSON turned `NaN` into `null`) and have
+both call it — see `oteCondition` in `src/OTE/OTE.ts`. Live bots and
+backtests then fire on the same bars by construction.
+
+**Pine Script thresholds in absolute price units** (points/ticks) don't
+transfer to a library used on every symbol — convert them to a percentage
+of price, and cap any history the script lets grow unbounded.
 
 **Time/calendar filter** — a pure function, no class, no
 `LightIndicator`, no `IndicatorConfig` member, no factory entry. Only needs
@@ -55,8 +67,9 @@ is implemented by consumers downstream. Don't use this shape for a "simple"
 real indicator — it skips the factory entirely, which breaks market-archive
 and the backtester's normal flow.
 
-Then `npm run build && npm run lint`, commit, **tag/publish the version**
-— nothing downstream can bump to it until you do.
+Then `npm test && npm run build && npm run lint`, commit, **push** —
+consumers pin this repo by commit sha in their lockfiles, so the push is
+the publish, and nothing downstream moves until its lock is bumped.
 
 ## Sister repos
 
