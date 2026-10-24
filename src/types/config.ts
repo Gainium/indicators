@@ -63,6 +63,7 @@ export enum IndicatorEnum {
   obfvg = 'OBFVG',
   session = 'SESSION',
   lw = 'LW',
+  ote = 'OTE',
 }
 
 /** Moving-average variants. Consumed by `ma` / `bb` / `bbw` / `mar` / `kc`. */
@@ -138,6 +139,7 @@ export type DivergenceOscillators =
 
 export type IndicatorConfig =
   | { type: IndicatorEnum.lw; lwThreshold: number; lwMaxDuration: number }
+  | { type: IndicatorEnum.ote; oteLeftBars: number; oteMinLegSize: number }
   | { type: IndicatorEnum.obfvg }
   | { type: IndicatorEnum.dc; length: number }
   | {

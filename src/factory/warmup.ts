@@ -141,6 +141,8 @@ function getBaseWarmupCandles(config: IndicatorConfig): number {
       return 1000
     case IndicatorEnum.lw:
       return 201
+    case IndicatorEnum.ote:
+      return 1000
     default:
       // Types that have no explicit warmup in the source service fall
       // through to a generous default. Callers may still fetch more

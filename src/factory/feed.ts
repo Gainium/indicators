@@ -12,7 +12,7 @@
  *                              SupportResistance, QFL, PSAR, SuperTrend,
  *                              ATR, PriorPivot, ADR, ATH
  *   - `{open, high, low, close}` → BullBear, MOM, ECD, DonchianChannels,
- *                                  OBFVG, LongWick
+ *                                  OBFVG, LongWick, OTELevels
  *   - `{open, high, low, close, volume}` → VWMA, TVTA, MFI, BBW, BB, KC,
  *                                          KCPB, BBWP, BBPB, MAR, DIV, PC
  *   - `{high, low}`          → AO
@@ -47,6 +47,7 @@ import { MAR } from '../MAR/MAR'
 import { MFI } from '../MFI/MFI'
 import { MOM } from '../MOM/MOM'
 import { OBFVG } from '../OBFVG/OBFVG'
+import { OTELevels } from '../OTE/OTE'
 import { PC } from '../PC/PC'
 import { PSAR } from '../PSAR/PSAR'
 import { PriorPivot } from '../PriorPivot/PP'
@@ -141,7 +142,8 @@ function candleInput(indicator: any, candle: FeedCandle): unknown {
     indicator instanceof ECD ||
     indicator instanceof DonchianChannels ||
     indicator instanceof OBFVG ||
-    indicator instanceof LongWick
+    indicator instanceof LongWick ||
+    indicator instanceof OTELevels
   ) {
     return {
       open: candle.o,

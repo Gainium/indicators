@@ -105,6 +105,18 @@ export type LongWickResult = {
   price: number
 }
 
+/**
+ * The latest valid leg of `OTELevels`. `direction` is 1 for a bullish leg
+ * (swing low up to swing high), -1 for a bearish one; all three are NaN
+ * until a leg exists.
+ */
+export type OTEResult = {
+  high: number
+  low: number
+  direction: number
+  price: number
+}
+
 export type OBFVGResult = {
   bullishFVGHigh: number
   bullishFVGLow: number

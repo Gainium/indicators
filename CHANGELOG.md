@@ -5,6 +5,21 @@ All notable changes to the Gainium Technical Indicators library will be document
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.0] - 2026-10-24
+
+### Added
+
+- **Discount / Premium OTE Levels (`OTELevels`, `IndicatorEnum.ote`).**
+  Tracks the latest valid price leg between a swing low and a swing high
+  (TradingView pivots: `oteLeftBars` to the left, one bar to the right) that
+  is at least `oteMinLegSize` percent long, re-anchoring on the remaining
+  swings when price trades through the leg's extreme. The result is the leg
+  (`high`, `low`, `direction`: 1 bullish, -1 bearish, NaN without a leg)
+  plus `price`. `oteLevelPrice(result, level)` gives the price of a
+  retracement level (0 = the leg's end, 1 = its origin, 0.705 = the OTE
+  sweet spot). Registered in `createIndicator`, `getWarmupCandles` (1000)
+  and `feedCandle` (OHLC).
+
 ## [1.6.0] - 2026-10-23
 
 ### Added

@@ -38,6 +38,7 @@ import {
   MFI,
   MOM,
   OBFVG,
+  OTELevels,
   PC,
   PSAR,
   PriorPivot,
@@ -385,6 +386,9 @@ function createBaseIndicator(config: IndicatorConfig): any {
 
     case IndicatorEnum.lw:
       return new LongWick(config.lwThreshold ?? 2, config.lwMaxDuration ?? 1000)
+
+    case IndicatorEnum.ote:
+      return new OTELevels(config.oteLeftBars ?? 10, config.oteMinLegSize ?? 1)
 
     default:
       return null
