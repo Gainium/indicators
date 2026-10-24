@@ -269,6 +269,7 @@ describe('sessionLevelValue', () => {
     prevLow: 4,
     prevClose: 5,
     curOpen: 6,
+    curMid: 6.5,
     price: 7,
     inSession: 1,
     sessionKey: 20261023,
@@ -278,7 +279,7 @@ describe('sessionLevelValue', () => {
   it('reads every level and NaN for anything else', () => {
     expect(
       Object.values(SessionLevelEnum).map((l) => sessionLevelValue(r, l)),
-    ).to.deep.equal([1, 2, 3, 4, 5, 6, 7])
+    ).to.deep.equal([1, 2, 3, 4, 5, 6, 6.5, 7])
     expect(sessionLevelValue(r, 'nope')).to.be.NaN
     expect(sessionLevelValue(null, SessionLevelEnum.price)).to.be.NaN
   })
@@ -293,6 +294,7 @@ describe('sessionLevelsCondition', () => {
     prevLow: 90,
     prevClose: 105,
     curOpen: 102,
+    curMid: 103,
     price: 105,
     inSession: 1,
     sessionKey: 20261023,
@@ -577,5 +579,164 @@ describe('SessionLevels factory registration', () => {
     expect(ind.result.price).to.equal(11)
     feed('2026-10-22T12:00:00Z', 9, 9, 9, 9)
     expect(prev(ind.result)).to.deep.equal([20261022, 10, 15, 9, 11, 12])
+  })
+})
+
+describe('SessionLevels current session midpoint (curMid)', () => {
+  const hours = { start: '08:00', end: '12:00' }
+  // UTC 08:00–12:00 on weekdays, 1h candles
+  const bars = [
+    bar('2026-10-22T07:00:00Z', 10, 11, 9, 10), // 0 Thu, before the session
+    bar('2026-10-22T08:00:00Z', 10, 12, 9.5, 11), // 1 opens: H12 L9.5
+    bar('2026-10-22T09:00:00Z', 11, 15, 10.5, 14), // 2 new high: H15 L9.5
+    bar('2026-10-22T10:00:00Z', 14, 14.5, 11, 12), // 3 no new extreme
+    bar('2026-10-22T11:00:00Z', 12, 13, 8, 9), // 4 new low: H15 L8
+    bar('2026-10-22T12:00:00Z', 9, 9.5, 8.5, 9), // 5 closes it
+    bar('2026-10-23T08:00:00Z', 20, 21, 19, 20), // 6 opens Friday: H21 L19
+    bar('2026-10-23T09:00:00Z', 20, 22, 18, 16), // 7 H22 L18
+    bar('2026-10-23T10:00:00Z', 18.5, 21.5, 18.5, 21), // 8 no new extreme
+  ]
+  const mids = (results: SessionLevelsResult[]) => results.map((r) => r.curMid)
+
+  it('is the running (high + low) / 2 of the session in progress, NaN outside', () => {
+    const results = run(new SessionLevels(WEEKDAYS, hours), bars)
+    expect(mids(results)).to.deep.equal([
+      NaN,
+      10.75, // (12 + 9.5) / 2
+      12.25, // (15 + 9.5) / 2 — moves on the new high
+      12.25, // unchanged
+      11.5, // (15 + 8) / 2 — moves on the new low
+      NaN, // outside
+      20, // (21 + 19) / 2 — reset: Thursday's 15 / 8 do not carry over
+      20, // (22 + 18) / 2
+      20,
+    ])
+    // Thursday's completed session is unaffected: mid of 15 / 8.
+    expect(results[6].prevMid).to.equal(11.5)
+  })
+
+  it('reads through sessionLevelValue', () => {
+    const results = run(new SessionLevels(WEEKDAYS, hours), bars.slice(0, 3))
+    expect(sessionLevelValue(results[2], SessionLevelEnum.curMid)).to.equal(
+      12.25,
+    )
+    expect(sessionLevelValue(results[0], SessionLevelEnum.curMid)).to.be.NaN
+    const json = JSON.parse(JSON.stringify(results[0])) as SessionLevelsResult
+    expect(sessionLevelValue(json, SessionLevelEnum.curMid)).to.be.NaN
+  })
+
+  it('describes a session already open when the data starts, as seen so far', () => {
+    const results = run(new SessionLevels(WEEKDAYS, hours), bars.slice(2, 6))
+    // first timed candle at 09:00 is inside: H15 L10.5, then L8
+    expect(mids(results)).to.deep.equal([12.75, 12.75, 11.5, NaN])
+    // ...but that partial session never becomes the previous session
+    expect(isNaN(results[3].prevMid)).to.equal(true)
+  })
+
+  it('is NaN on a candle without a time, whose extremes never count', () => {
+    const ind = new SessionLevels(WEEKDAYS, hours)
+    run(ind, bars.slice(0, 2))
+    const untimed = ind.next({
+      open: 11,
+      high: 50,
+      low: 1,
+      close: 30,
+      time: NaN,
+    }) as SessionLevelsResult
+    expect(untimed.curMid).to.be.NaN
+    const [next] = run(ind, [bars[2]])
+    expect(next.curMid).to.equal(12.25)
+  })
+
+  it('counts price crossing the moving midpoint within a session', () => {
+    const results = run(new SessionLevels(WEEKDAYS, hours), bars)
+    const fires = (cond: string) =>
+      results.map((last, i) =>
+        sessionLevelsCondition(last, results[i - 1] ?? null, {
+          a: SessionLevelEnum.price,
+          b: SessionLevelEnum.curMid,
+          condition: cond,
+        }),
+      )
+    // price vs curMid: 11 > 10.75, 14 > 12.25, 12 < 12.25, 9 < 11.5 | out |
+    // 20 = 20 (first bar of the session), 16 < 20, 21 > 20
+    expect(fires('cd')).to.deep.equal([
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+    ])
+    expect(fires('cu')).to.deep.equal([
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+    ])
+    expect(fires('gt')).to.deep.equal([
+      false,
+      true,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+    ])
+  })
+
+  it('does not count a crossing across a rollover', () => {
+    // Whole-day sessions Wed–Fri; Tuesday is outside, so Wednesday is whole.
+    const results = run(new SessionLevels([3, 4, 5]), [
+      bar('2026-10-20T12:00:00Z', 10, 10, 10, 10), // Tue, outside
+      bar('2026-10-21T00:00:00Z', 10, 12, 9, 11), // Wed: mid 10.5, price above
+      bar('2026-10-21T12:00:00Z', 11, 20, 10, 12), // H20 L9: mid 14.5, below
+      bar('2026-10-22T00:00:00Z', 12, 13, 11, 12.5), // Thu: mid 12, price above
+      bar('2026-10-22T12:00:00Z', 12.5, 14, 12, 12.2), // H14 L11: 12.5, below
+    ])
+    expect(mids(results)).to.deep.equal([NaN, 10.5, 14.5, 12, 12.5])
+    const fires = (cond: string) =>
+      results.map((last, i) =>
+        sessionLevelsCondition(last, results[i - 1] ?? null, {
+          a: SessionLevelEnum.price,
+          b: SessionLevelEnum.curMid,
+          condition: cond,
+        }),
+      )
+    // 12 < 14.5 then 12.5 >= 12 is the new session's midpoint, not a crossing.
+    expect(fires('cu')).to.deep.equal([false, false, false, false, false])
+    // Thursday's midpoint rising through price is a crossing down.
+    expect(fires('cd')).to.deep.equal([false, false, true, false, true])
+  })
+
+  it('continues identically after exportState / restoreState', () => {
+    const a = new SessionLevels(WEEKDAYS, hours)
+    const b = new SessionLevels(WEEKDAYS, hours)
+    run(a, bars.slice(0, 3))
+    run(b, bars.slice(0, 3))
+    const state = a.exportState()
+    // diverge inside the same session with new extremes, then roll back
+    const [diverged] = run(a, [bar('2026-10-22T10:00:00Z', 1, 99, 0.1, 1)])
+    expect(diverged.curMid).to.equal(49.55)
+    a.restoreState(state)
+    const p = a.preview(bar('2026-10-22T10:00:00Z', 1, 99, 0.1, 1))
+    expect(p?.curMid).to.equal(49.55)
+    // a fresh instance restored from the same state continues the same way
+    const c = new SessionLevels(WEEKDAYS, hours)
+    c.restoreState(state)
+    const expected = run(b, bars.slice(3))
+    expect(mids(expected)).to.deep.equal([12.25, 11.5, NaN, 20, 20, 20])
+    expect(run(a, bars.slice(3))).to.deep.equal(expected)
+    expect(run(c, bars.slice(3))).to.deep.equal(expected)
   })
 })

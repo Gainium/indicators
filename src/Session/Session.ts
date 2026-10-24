@@ -25,6 +25,11 @@ export enum SessionLevelEnum {
   prevClose = 'prevClose',
   /** open of the first candle of the session in progress; none outside it */
   curOpen = 'curOpen',
+  /**
+   * (highest high + lowest low) / 2 of the session in progress so far,
+   * including the latest candle; none outside it
+   */
+  curMid = 'curMid',
   /** close of the latest candle */
   price = 'price',
 }
@@ -216,8 +221,8 @@ enum SessionLevelsState {
  * Type: Time / Price Level Indicator
  *
  * Groups candles into sessions and reports the open, high, low, close and
- * midpoint of the last completed session, the open of the session in
- * progress and the latest close (see `SessionLevelsResult`).
+ * midpoint of the last completed session, the open and running midpoint of
+ * the session in progress and the latest close (see `SessionLevelsResult`).
  *
  * - A candle belongs to a session when its OPEN time is inside the session
  *   window — the same window as `isInSession` with rule `in`: `days`, an
@@ -232,6 +237,7 @@ enum SessionLevelsState {
  *   the very first candle with a time is already inside a session, that
  *   session may have opened before the data starts, so it never becomes the
  *   previous session (the `prev*` levels stay NaN until the next one ends).
+ *   `curOpen` and `curMid` still describe that session as seen so far.
  * - A candle without a usable `time` is not grouped: it updates `price`
  *   only, leaves every session untouched and reports `inSession` 0.
  *
@@ -313,6 +319,9 @@ export class SessionLevels extends LightIndicator<SessionLevelsResult, OHLCT> {
       prevLow,
       prevClose: s[SessionLevelsState.PREV_CLOSE],
       curOpen: inSession ? s[SessionLevelsState.CUR_OPEN] : NaN,
+      curMid: inSession
+        ? (s[SessionLevelsState.CUR_HIGH] + s[SessionLevelsState.CUR_LOW]) / 2
+        : NaN,
       price: candle.close,
       inSession: inSession ? 1 : 0,
       sessionKey: inSession ? s[SessionLevelsState.CUR_KEY] : NaN,
@@ -346,6 +355,8 @@ export const sessionLevelValue = (
       return num(result.prevClose)
     case SessionLevelEnum.curOpen:
       return num(result.curOpen)
+    case SessionLevelEnum.curMid:
+      return num(result.curMid)
     case SessionLevelEnum.price:
       return num(result.price)
     default:

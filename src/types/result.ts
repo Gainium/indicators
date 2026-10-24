@@ -120,8 +120,10 @@ export type OTEResult = {
 /**
  * Session levels of `SessionLevels` after the latest candle. Every field is a
  * number, NaN where there is no value: the `prev*` levels until a session has
- * been seen from its first candle to its end, `curOpen` and `sessionKey`
- * outside a session. `inSession` is 1 when the latest candle opened inside
+ * been seen from its first candle to its end, `curOpen`, `curMid` and
+ * `sessionKey` outside a session. `curMid` is the midpoint of the highest
+ * high and lowest low of the session in progress so far, latest candle
+ * included. `inSession` is 1 when the latest candle opened inside
  * the session window, 0 otherwise. Session keys are `yyyymmdd` of the local
  * day the session opened (see `sessionKey`).
  */
@@ -132,6 +134,7 @@ export type SessionLevelsResult = {
   prevLow: number
   prevClose: number
   curOpen: number
+  curMid: number
   price: number
   inSession: number
   sessionKey: number

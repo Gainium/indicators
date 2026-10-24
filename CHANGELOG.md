@@ -5,6 +5,21 @@ All notable changes to the Gainium Technical Indicators library will be document
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.0] - 2026-10-24
+
+### Added
+
+- **Current session midpoint (`SessionLevelEnum.curMid`).** A new Price
+  levels value: (highest high + lowest low) / 2 of the session in progress
+  so far, latest candle included, so it moves whenever the session prints a
+  new high or low. NaN outside a session and on candles without a time, like
+  `curOpen`. Reported as `SessionLevelsResult.curMid` and read by
+  `sessionLevelValue`; `sessionLevelsCondition` crossings against it follow
+  the usual rules (within one session they count, across a rollover they do
+  not). A session already in progress when the data starts still reports its
+  midpoint as seen so far. No new indicator state: the running high and low
+  were already tracked, so exported states from 1.8.0 restore unchanged.
+
 ## [1.8.0] - 2026-10-24
 
 ### Added
