@@ -56,6 +56,14 @@ boolean` (tolerating `null` where JSON turned `NaN` into `null`) and have
 both call it — see `oteCondition` in `src/OTE/OTE.ts`. Live bots and
 backtests then fire on the same bars by construction.
 
+**Time-aware math** uses the `OHLCT` input (OHLC + candle open `time`);
+`FeedCandle` carries the time as optional `t`, and callers must pass it.
+Keep state in `_state` where possible (base export/restore then just
+works); never treat a period already under way at the first candle as
+complete. **Hybrid types** (a filter for some settings, an indicator for
+others — Session): the factory returns the class only for the candle
+settings, `null` otherwise.
+
 **Pine Script thresholds in absolute price units** (points/ticks) don't
 transfer to a library used on every symbol — convert them to a percentage
 of price, and cap any history the script lets grow unbounded.
