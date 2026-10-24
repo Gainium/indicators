@@ -3,6 +3,7 @@ import { PivotCalculator } from '../util/pivot'
 import { lastIndexOfEnum, ohlcValue } from '../util'
 import { OHLC } from '../types/candles'
 import { OTEResult } from '../types/result'
+import { gt, gte, lt, lte } from '../util/math'
 
 enum OTEState {
   BAR = 0, // index of the current bar, counted from the first candle fed
@@ -280,6 +281,10 @@ export class OTELevels extends LightIndicator<OTEResult, OHLC> {
   }
 }
 
+// Results that went through JSON carry null where the indicator wrote NaN.
+const num = (v: number | null | undefined): number =>
+  v === null || v === undefined ? NaN : +v
+
 /**
  * Price of retracement level `level` of a leg: 0 is the leg's end (the swing
  * it was built to), 1 its origin, 0.5 the equilibrium. NaN without a leg.
@@ -288,10 +293,89 @@ export const oteLevelPrice = (
   result: Pick<OTEResult, 'high' | 'low' | 'direction'>,
   level: number,
 ): number => {
-  const { high, low, direction } = result
+  const high = num(result.high)
+  const low = num(result.low)
+  const direction = num(result.direction)
   if (isNaN(high) || isNaN(low) || isNaN(level) || !direction) {
     return NaN
   }
   const size = high - low
   return direction > 0 ? high - level * size : low + level * size
+}
+
+/** Which leg direction an OTE Levels condition reads. */
+export enum OTELegEnum {
+  bullish = 'bullish',
+  bearish = 'bearish',
+  any = 'any',
+}
+
+export type OTEConditionSettings = {
+  /** retracement level price is compared with (see `oteLevelPrice`) */
+  level: number
+  /** missing = any */
+  leg?: OTELegEnum | string
+  /** 'cd' | 'cu' | 'gt' | 'lt'; missing = 'cd' */
+  condition?: string
+}
+
+const sameLeg = (a: OTEResult, b: OTEResult) =>
+  num(a.high) === num(b.high) &&
+  num(a.low) === num(b.low) &&
+  num(a.direction) === num(b.direction)
+
+/**
+ * The bot-condition decision of OTE Levels, shared by the live engine and the
+ * backtester so both fire on the same bars. `last` is the newest bar, `prev`
+ * the one before it (only needed for crossings).
+ *
+ * - Only the latest leg is read, and only when its direction matches `leg`.
+ * - `gt` / `lt`: the close is above / below the level.
+ * - `cu` / `cd`: the close crossed the level between `prev` and `last` on the
+ *   SAME leg — a new leg moves every level at once, and that jump is not a
+ *   crossing.
+ */
+export const oteCondition = (
+  last: OTEResult | null | undefined,
+  prev: OTEResult | null | undefined,
+  settings: OTEConditionSettings,
+): boolean => {
+  if (!last) {
+    return false
+  }
+  const direction = num(last.direction)
+  const leg = settings.leg ?? OTELegEnum.any
+  if (
+    !(direction === 1 || direction === -1) ||
+    (leg === OTELegEnum.bullish && direction !== 1) ||
+    (leg === OTELegEnum.bearish && direction !== -1)
+  ) {
+    return false
+  }
+  const level = oteLevelPrice(last, settings.level)
+  const price = num(last.price)
+  if (isNaN(level) || isNaN(price)) {
+    return false
+  }
+  const condition = settings.condition ?? 'cd'
+  if (condition === 'gt') {
+    return gt(price, level)
+  }
+  if (condition === 'lt') {
+    return lt(price, level)
+  }
+  if (!prev || !sameLeg(prev, last)) {
+    return false
+  }
+  const prevPrice = num(prev.price)
+  if (isNaN(prevPrice)) {
+    return false
+  }
+  if (condition === 'cd') {
+    return gt(prevPrice, level) && lte(price, level)
+  }
+  if (condition === 'cu') {
+    return lt(prevPrice, level) && gte(price, level)
+  }
+  return false
 }

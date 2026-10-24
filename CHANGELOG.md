@@ -19,6 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   retracement level (0 = the leg's end, 1 = its origin, 0.705 = the OTE
   sweet spot). Registered in `createIndicator`, `getWarmupCandles` (1000)
   and `feedCandle` (OHLC).
+- `oteCondition(last, prev, { level, leg, condition })` — the bot-condition
+  decision (close vs a level of the latest leg: `gt`, `lt`, or a `cu` / `cd`
+  crossing on the same leg; `leg` filters `bullish` / `bearish` / `any`),
+  shared by the live engine and the backtester so both fire on the same bars.
 
 ## [1.6.0] - 2026-10-23
 

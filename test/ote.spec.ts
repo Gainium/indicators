@@ -1,6 +1,11 @@
 import { describe, it } from 'mocha'
 import { expect } from 'chai'
-import { OTELevels, oteLevelPrice } from '../src/OTE/OTE'
+import {
+  OTELegEnum,
+  OTELevels,
+  oteCondition,
+  oteLevelPrice,
+} from '../src/OTE/OTE'
 import { OTEResult } from '../src/types/result'
 import { createIndicator, feedCandle, getWarmupCandles } from '../src/factory'
 import { IndicatorEnum } from '../src/types/config'
@@ -116,5 +121,64 @@ describe('OTE factory registration', () => {
       feedCandle(ind, { o: c, h: c + 0.5, l: c - 0.5, c, v: 1 })
     }
     expect(leg(ind.result)).to.deep.equal([1, 94.5, 120.5])
+  })
+})
+
+describe('oteCondition', () => {
+  // bullish leg 100 -> 120: the 0.5 level is 110
+  const bar = (price: number, direction = 1, high = 120) => ({
+    high,
+    low: 100,
+    direction,
+    price,
+  })
+  const at = (condition: string, leg?: OTELegEnum) => ({
+    level: 0.5,
+    condition,
+    leg,
+  })
+
+  it('compares the close with the level for gt / lt', () => {
+    expect(oteCondition(bar(111), null, at('gt'))).to.equal(true)
+    expect(oteCondition(bar(109), null, at('gt'))).to.equal(false)
+    expect(oteCondition(bar(109), null, at('lt'))).to.equal(true)
+    expect(oteCondition(bar(110), null, at('lt'))).to.equal(false)
+  })
+
+  it('detects crossings on the same leg, including touching the level', () => {
+    expect(oteCondition(bar(110), bar(112), at('cd'))).to.equal(true)
+    expect(oteCondition(bar(108), bar(112), at('cd'))).to.equal(true)
+    expect(oteCondition(bar(108), bar(109), at('cd'))).to.equal(false)
+    expect(oteCondition(bar(111), bar(108), at('cu'))).to.equal(true)
+    expect(oteCondition(bar(111), bar(112), at('cu'))).to.equal(false)
+    // missing condition = crossing down
+    expect(oteCondition(bar(108), bar(112), { level: 0.5 })).to.equal(true)
+  })
+
+  it('does not treat a new leg moving the level as a crossing', () => {
+    // previous leg 100 -> 130 had its 0.5 level at 115
+    expect(oteCondition(bar(112), bar(113, 1, 130), at('cd'))).to.equal(false)
+    expect(oteCondition(bar(112), null, at('cd'))).to.equal(false)
+  })
+
+  it('reads only legs of the chosen direction', () => {
+    expect(
+      oteCondition(bar(109, -1), null, at('lt', OTELegEnum.bullish)),
+    ).to.equal(false)
+    expect(
+      oteCondition(bar(109, -1), null, at('lt', OTELegEnum.bearish)),
+    ).to.equal(true)
+    expect(oteCondition(bar(109, -1), null, at('lt', OTELegEnum.any))).to.equal(
+      true,
+    )
+  })
+
+  it('never fires without a leg, including JSON nulls', () => {
+    const none = { high: null, low: null, direction: null, price: 105 }
+    expect(oteCondition(none as unknown as OTEResult, null, at('lt'))).to.equal(
+      false,
+    )
+    const viaJson = JSON.parse(JSON.stringify(bar(109))) as OTEResult
+    expect(oteCondition(viaJson, null, at('lt'))).to.equal(true)
   })
 })
