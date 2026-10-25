@@ -5,6 +5,19 @@ All notable changes to the Gainium Technical Indicators library will be document
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.1] - 2026-10-25
+
+### Fixed
+
+- **MAR with a VWMA leg gave no values when the type was lower case.** The
+  VWMA legs were fed the candle only for `'VWMA'`; bot settings send `'vwma'`,
+  so the leg got a bare number and the ratio never formed. The type is now
+  matched in either case.
+- **VWMA took twice its length to warm up.** The volume SMA was skipped while
+  the volume-price SMA warmed up, so it started a window late. Both now update
+  on every candle and VWMA gives its first value on its length-th candle, like
+  SMA. Values after warm-up are unchanged.
+
 ## [1.9.0] - 2026-10-24
 
 ### Added

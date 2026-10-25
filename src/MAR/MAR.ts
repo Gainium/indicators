@@ -200,7 +200,9 @@ export class MAR extends LightIndicator<PercentileResult, OHLCV> {
     const th = this.trendHistory
 
     // Try different update methods based on indicator type
-    if (this.ma1Type === 'VWMA') {
+    // the type arrives in either case (bot settings send 'vwma'); VWMA reads
+    // the candle's volume, the other averages the close
+    if (this.ma1Type.toUpperCase() === 'VWMA') {
       ;(ma1 as VWMA).next(l)
     } else {
       ;(ma1 as any).next(l.close)
@@ -214,7 +216,7 @@ export class MAR extends LightIndicator<PercentileResult, OHLCV> {
       s[MARState.MA_2_VALUE] = l.close
     } else if (ma2) {
       // Try different update methods based on indicator type
-      if (this.ma2Type === 'VWMA') {
+      if (this.ma2Type.toUpperCase() === 'VWMA') {
         ;(ma2 as VWMA).next(l)
       } else {
         ;(ma2 as any).next(l.close)

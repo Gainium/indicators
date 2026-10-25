@@ -130,12 +130,12 @@ export class VWMA extends LightIndicator<number, OHLCV> {
     const l = this._history.last
     const vp = this._volumePriceSMA
     const v = this._volumeSMA
-    // Update the volume-price and volume SMAs
-    if (vp.next(l.close * l.volume) === null) {
-      return null
-    }
-
-    if (v.next(l.volume) === null) {
+    // Update the volume-price and volume SMAs on every bar: returning
+    // after the first one while it warms up left the volume SMA a full
+    // window behind, so VWMA took twice its length to give a value
+    const volumePrice = vp.next(l.close * l.volume)
+    const volume = v.next(l.volume)
+    if (volumePrice === null || volume === null) {
       return null
     }
 
