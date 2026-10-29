@@ -81,14 +81,91 @@ export class PC extends LightIndicator<PCResult, OHLC> {
    */
   protected calculate(): PCResult | null {
     const l = this._history.last
+    const upPct = Math.abs((l.high - l.open) / l.open) * 100
+    const downPct = Math.abs((l.open - l.low) / l.open) * 100
 
     return {
-      up: !!(Math.abs((l.high - l.open) / l.open) * 100 > this.upThreshold
-        ? 1
-        : 0),
-      down: !!(Math.abs((l.open - l.low) / l.open) * 100 > this.downThreshold
-        ? 1
-        : 0),
+      up: upPct > this.upThreshold,
+      down: downPct > this.downThreshold,
+      upPct,
+      downPct,
     }
   }
+}
+
+/**
+ * How the candle's move is compared with the setting value(s).
+ * Missing = `gt` (the only behaviour before 1.13.0).
+ */
+export enum PCCompareEnum {
+  /** move > |value| */
+  gt = 'gt',
+  /** move < |value| */
+  lt = 'lt',
+  /** min(|value|, |value2|) < move < max(|value|, |value2|) */
+  bw = 'bw',
+}
+
+export type PriceChangeConditionSettings = {
+  /** Threshold in %; its sign picks the move: > 0 = up (open→high), otherwise down (open→low). Missing = '5'. */
+  value?: string | number | null
+  /** Second bound for `bw`, same sign as `value`. */
+  value2?: string | number | null
+  /** Missing / null / unknown = `gt`. */
+  compare?: PCCompareEnum | string | null
+}
+
+/** `+v`, with `undefined` / `null` → the legacy default '5'. */
+const pcNumber = (v: string | number | null | undefined, fallback?: string) =>
+  v === undefined || v === null
+    ? fallback === undefined
+      ? NaN
+      : +fallback
+    : +v
+
+/**
+ * The Price Change bot condition on the latest candle — shared by main-app
+ * and the backtester.
+ *
+ * Direction is the sign of `value` (> 0 = up move, otherwise the down move —
+ * exactly the pre-1.13.0 rule, so `'0'` / `''` read as down). Comparisons are
+ * strict:
+ * - `gt` (also missing / null / unknown): move > |value|
+ * - `lt`: move < |value|
+ * - `bw`: lo < move < hi with lo / hi = min / max of |value|, |value2|; both
+ *   values must be non-zero with the same sign, else false.
+ *
+ * Results from before 1.13.0 (or after a JSON hop that turned NaN into null)
+ * carry no `upPct` / `downPct`: `gt` then returns the stored boolean (the room
+ * computed it with the same |value|), `lt` / `bw` return false.
+ */
+export const priceChangeCondition = (
+  last: PCResult | null | undefined,
+  settings: PriceChangeConditionSettings = {},
+): boolean => {
+  if (!last) {
+    return false
+  }
+  const v1 = pcNumber(settings.value, '5')
+  const up = v1 > 0
+  const pct = up ? last.upPct : last.downPct
+  const hasPct = typeof pct === 'number' && !Number.isNaN(pct)
+  const compare = settings.compare
+  if (compare === PCCompareEnum.lt) {
+    return hasPct && pct < Math.abs(v1)
+  }
+  if (compare === PCCompareEnum.bw) {
+    const v2 = pcNumber(settings.value2)
+    const sameSign = (v1 > 0 && v2 > 0) || (v1 < 0 && v2 < 0)
+    if (!hasPct || !sameSign) {
+      return false
+    }
+    const lo = Math.min(Math.abs(v1), Math.abs(v2))
+    const hi = Math.max(Math.abs(v1), Math.abs(v2))
+    return pct > lo && pct < hi
+  }
+  if (!hasPct) {
+    return !!(up ? last.up : last.down)
+  }
+  return pct > Math.abs(v1)
 }

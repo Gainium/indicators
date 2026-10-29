@@ -65,6 +65,10 @@ export interface ExtremumResult {
 export type PCResult = {
   up: boolean
   down: boolean
+  /** (high − open) / open · 100 of the candle, ≥ 0 (absent on pre-1.13.0 data). */
+  upPct?: number
+  /** (open − low) / open · 100 of the candle, ≥ 0 (absent on pre-1.13.0 data). */
+  downPct?: number
 }
 
 export type QFLResult = {

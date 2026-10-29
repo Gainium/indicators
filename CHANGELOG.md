@@ -5,6 +5,22 @@ All notable changes to the Gainium Technical Indicators library will be document
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.13.0] - 2026-10-29
+
+### Added
+
+- **Price Change range.** `PCResult` gains `upPct` = (high − open) / open · 100
+  and `downPct` = (open − low) / open · 100 (both ≥ 0) next to the unchanged
+  `up` / `down` booleans; the room config (`pcUp` / `pcDown`) is unchanged.
+  New `PCCompareEnum` (`gt` | `lt` | `bw`) and the shared bot decision
+  `priceChangeCondition(last, { value, value2, compare })`: the sign of
+  `value` picks the move (> 0 = up, otherwise down, as before); `gt` = move >
+  |value|, `lt` = move < |value|, `bw` = lo < move < hi with lo / hi the
+  min / max of |value| and |value2| (both non-zero, same sign; strict at both
+  bounds). A missing, null or unknown `compare` is `gt` and decides exactly as
+  before 1.13.0 on every candle. Results without the pct fields (older data)
+  fall back to the stored boolean for `gt`; `lt` / `bw` are false there.
+
 ## [1.12.0] - 2026-10-29
 
 ### Added

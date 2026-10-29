@@ -155,7 +155,7 @@ oscillator's own value (feed it with `feedCandle`).
 - **MAD** - Median Absolute Deviation
 - **MAR** - Moving Average Ratio
 - **DIV** - Divergence Detection
-- **PC** - Price Channel
+- **PC** - Price Change (open→high / open→low move in %; `priceChangeCondition` gt / lt / between)
 - **ECD** - Elder Channel Divergence
 - **ADR** - Average Daily Range
 
