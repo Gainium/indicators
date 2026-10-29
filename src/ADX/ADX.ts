@@ -1,6 +1,13 @@
 import { HLC } from '../types/candles'
-import { PercentileResult } from '../types/result'
-import { gt, hlcValue, lastIndexOfEnum, PercentileCalculator } from '../util'
+import { ADXResult, PercentileResult } from '../types/result'
+import {
+  gt,
+  hlcValue,
+  lastIndexOfEnum,
+  lineCondition,
+  PercentileCalculator,
+  resultNumber,
+} from '../util'
 import { LightIndicator, LightIndicatorState } from '../util/indicator'
 import { WSMA } from '../WSMA/WSMA'
 
@@ -41,12 +48,21 @@ enum ADXState {
  * - DX = 100 × (|+DI - -DI| / (+DI + -DI))
  * - ADX = Smoothed DX
  *
+ * DMI mode (`withDI`, factory config `dmi: true`): the result also carries
+ * +DI (`pdi`) and −DI (`mdi`) of the same bar — the DMI lines, same length as
+ * the ADX (one length for DI and ADX smoothing, as TradingView's DMI with
+ * equal "DI Length" and "ADX Smoothing"). They are reported from the first
+ * bar the ADX itself has a value (DI alone would be ready ~`interval` bars
+ * earlier; the ADX's warm-up is kept so its null bars do not move), and
+ * `value` / `percentile` are the same numbers either way. Without `withDI`
+ * the result is exactly what it was before 1.11.0. See `dmiCondition`.
+ *
  * Candle Input Type: HLC (High, Low, Close)
  *
  * @see https://www.investopedia.com/terms/a/adx.asp
  * @see https://school.stockcharts.com/doku.php?id=technical_indicators:average_directional_index_adx
  */
-export class ADX extends LightIndicator<PercentileResult, HLC> {
+export class ADX extends LightIndicator<PercentileResult | ADXResult, HLC> {
   // Components for DX calculation
   private readonly atrSum: WSMA
   private readonly upMoveSum: WSMA
@@ -63,12 +79,15 @@ export class ADX extends LightIndicator<PercentileResult, HLC> {
    * @param percentile - Whether to calculate percentile ranking (optional)
    * @param percentileLookback - Number of periods for percentile calculation (optional)
    * @param percentilePercentage - Percentile threshold percentage (optional)
+   * @param withDI - also report +DI / −DI as `pdi` / `mdi` (DMI mode); off by
+   *                 default so the plain ADX result is exactly what it was
    */
   constructor(
     interval: number,
     percentile?: boolean,
     percentileLookback?: number,
     percentilePercentage?: number,
+    public readonly withDI: boolean = false,
   ) {
     /**
      * Initialize the LightIndicator parent class
@@ -103,7 +122,7 @@ export class ADX extends LightIndicator<PercentileResult, HLC> {
     return this._state[ADXState.MDI]
   }
 
-  protected calculate(): PercentileResult | null {
+  protected calculate(): PercentileResult | ADXResult | null {
     const h = this._history
 
     if (!h.isFilled) {
@@ -181,16 +200,27 @@ export class ADX extends LightIndicator<PercentileResult, HLC> {
     // Handle percentile calculation if needed
     if (this.percentileCalc) {
       if (this.percentileCalc.insert(adxSmoothing.result!)) {
-        return {
-          value: adxSmoothing.result!,
-          percentile: this.percentileCalc.getPercentile(),
-        }
+        return this.withDI
+          ? {
+              value: adxSmoothing.result!,
+              percentile: this.percentileCalc.getPercentile(),
+              pdi: s[ADXState.PDI],
+              mdi: s[ADXState.MDI],
+            }
+          : {
+              value: adxSmoothing.result!,
+              percentile: this.percentileCalc.getPercentile(),
+            }
       }
     }
 
-    return {
-      value: adxSmoothing.result!,
-    }
+    return this.withDI
+      ? {
+          value: adxSmoothing.result!,
+          pdi: s[ADXState.PDI],
+          mdi: s[ADXState.MDI],
+        }
+      : { value: adxSmoothing.result! }
   }
 
   override exportState(): LightIndicatorState {
@@ -224,4 +254,45 @@ export class ADX extends LightIndicator<PercentileResult, HLC> {
     }
     super.restoreState(state.parent)
   }
+}
+
+/** What a DMI condition compares: +DI against −DI. */
+export type DMIConditionSettings = {
+  /**
+   * The bot's `indicatorCondition`, read as "+DI ... −DI":
+   * `cu` +DI crosses above −DI, `cd` +DI crosses below −DI,
+   * `gt` +DI above −DI, `lt` +DI below −DI. Missing = `cu`.
+   */
+  condition?: string
+}
+
+/**
+ * The bot-condition decision of the ADX indicator's DMI mode (+DI vs −DI),
+ * shared by the live engine and the backtester so both fire on the same bars.
+ * `last` is the newest ADX result, `prev` the one before it (only needed for
+ * crossings). Results that went through JSON (NaN → null) are accepted.
+ *
+ * +DI is the indicator side and −DI the line it is compared with, through
+ * `lineCondition` — the engine's own crossing rule: `cu` = +DI above −DI now
+ * and at or below it on `prev`; `cd` = +DI below −DI now and at or above it
+ * on `prev`; `gt` / `lt` read `last` only. A missing result or DI value is
+ * false — as for an ADX built without `withDI`. It reads only `pdi` / `mdi`:
+ * the indicator room needs the ADX length and `dmi: true`; smoothing and
+ * percentile do not affect the DI lines.
+ */
+export const dmiCondition = (
+  last: Partial<ADXResult> | null | undefined,
+  prev: Partial<ADXResult> | null | undefined,
+  settings: DMIConditionSettings = {},
+): boolean => {
+  if (!last) {
+    return false
+  }
+  return lineCondition(
+    settings.condition ?? 'cu',
+    resultNumber(last.pdi),
+    resultNumber(last.mdi),
+    resultNumber(prev?.pdi),
+    resultNumber(prev?.mdi),
+  )
 }

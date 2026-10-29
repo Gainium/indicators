@@ -1,6 +1,7 @@
 import { DEMA } from '../DEMA/DEMA'
 import { EMA } from '../EMA/EMA'
 import { SessionRuleEnum } from '../Session/Session'
+import { VWAPAnchorEnum } from '../VWAP/VWAP'
 
 // ─── Existing: MACDConfig (kept for backwards compatibility with earlier
 //     consumers that imported it directly) ─────────────────────────────────
@@ -65,6 +66,8 @@ export enum IndicatorEnum {
   session = 'SESSION',
   lw = 'LW',
   ote = 'OTE',
+  kdj = 'KDJ',
+  vwap = 'VWAP',
 }
 
 /** Moving-average variants. Consumed by `ma` / `bb` / `bbw` / `mar` / `kc`. */
@@ -113,7 +116,11 @@ export type Smoothing = {
   smoothingLength?: number | null
 }
 
-/** Mix-in for indicators that gate signals on a trend filter. */
+/**
+ * Mix-in for indicators that gate signals on a trend filter (MAR, and the
+ * Moving Average since 1.11.0): the line now against itself
+ * `trendFilterLookback` bars ago, by `trendFilterValue` percent.
+ */
 export type TrendFilter = {
   trendFilter?: boolean
   trendFilterLookback?: number
@@ -141,6 +148,21 @@ export type DivergenceOscillators =
 
 export type IndicatorConfig =
   | { type: IndicatorEnum.lw; lwThreshold: number; lwMaxDuration: number }
+  | {
+      // KDJ(9, 3, 3) by default
+      type: IndicatorEnum.kdj
+      kdjLength?: number
+      kdjKSmooth?: number
+      kdjDSmooth?: number
+    }
+  | {
+      // Anchored VWAP. The band multiplier only shapes the result's
+      // upper / lower; `vwapCondition` takes its own, so a bot's rooms
+      // need only the anchor.
+      type: IndicatorEnum.vwap
+      vwapAnchor?: VWAPAnchorEnum | string
+      vwapBandMultiplier?: number
+    }
   | { type: IndicatorEnum.ote; oteLeftBars: number; oteMinLegSize: number }
   | {
       // Only the Price levels rule has an indicator instance; the in / out
@@ -217,6 +239,11 @@ export type IndicatorConfig =
         | IndicatorEnum.atr
         | IndicatorEnum.adr
       interval: number
+      /**
+       * ADX only: DMI mode — the result also carries +DI / −DI (`pdi` /
+       * `mdi`, see `dmiCondition`). Missing / false = the plain ADX result.
+       */
+      dmi?: boolean
     } & Percentile &
       Smoothing)
   | ({
@@ -275,11 +302,13 @@ export type IndicatorConfig =
       laggingSpan2Periods: number
       laggingSpan: number
     }
-  | {
+  | ({
+      // With `trendFilter` on, `createIndicator` returns `MATrendFilter`
+      // (result `{ value, trend }`); without it, the plain MA (a number).
       type: IndicatorEnum.ma
       maType: MAEnum
       interval: number
-    }
+    } & TrendFilter)
   | {
       type: IndicatorEnum.sr
       leftBars: number

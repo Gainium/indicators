@@ -4,6 +4,19 @@ export interface PercentileResult {
   trend?: number
 }
 
+/**
+ * Result of `ADX` in DMI mode (`withDI`, config `dmi: true`). `value` (and
+ * `percentile` in percentile mode) is the ADX line, the same number as
+ * without DMI mode; `pdi` / `mdi` are the +DI / −DI lines the ADX is derived
+ * from, on the same bar and with the same length (Wilder smoothing, as
+ * TradingView's DMI). Both are 0 on a bar whose smoothed true range is 0.
+ * Without DMI mode `ADX` returns a plain `PercentileResult`, unchanged.
+ */
+export interface ADXResult extends PercentileResult {
+  pdi: number
+  mdi: number
+}
+
 export interface BandsResult {
   lower: number
   middle: number
@@ -149,4 +162,43 @@ export type OBFVGResult = {
   bearishFVGLow: number
   bearishFVGMiddle: number
   price: number
+}
+
+/**
+ * KDJ lines of `KDJ`: K and D (0..100) and J = 3K − 2D (may leave 0..100).
+ */
+export type KDJResult = {
+  k: number
+  d: number
+  j: number
+}
+
+/**
+ * Anchored VWAP of `VWAP` after the latest candle. `vwap` is the
+ * volume-weighted average of hlc3 since the anchor (`periodStart`, ms, UTC),
+ * `stdev` the volume-weighted standard deviation of hlc3 around it, and
+ * `upper` / `lower` = vwap ± bandMultiplier × stdev with the instance's
+ * multiplier. `vwap`, `stdev`, `upper` and `lower` are NaN while the period
+ * has no volume yet. `price` is the latest close.
+ */
+export type VWAPResult = {
+  vwap: number
+  stdev: number
+  upper: number
+  lower: number
+  price: number
+  periodStart: number
+}
+
+/**
+ * A Moving Average with the trend filter on (`MATrendFilter`). `value` is the
+ * moving average, bit-identical to the plain MA of the same type and length.
+ * `trend` is the MAR-style trend code of the MA against its value `lookback`
+ * bars ago: 1 (falling, filter `lower`), 2 (rising, `higher`), 3 (flat,
+ * `between`) when the move meets the filter, 0 when it does not, undefined
+ * until `lookback` bars of MA values exist.
+ */
+export type MATrendResult = {
+  value: number
+  trend?: number
 }

@@ -14,6 +14,8 @@ import {
   MAEnum,
   Smoothing,
 } from '../types/config'
+import { kdjSettleBars } from '../KDJ/KDJ'
+import { VWAP_WARMUP, resolveVWAPAnchor } from '../VWAP/VWAP'
 import {
   getSmoothingWarmup,
   isSmoothableIndicator,
@@ -129,7 +131,11 @@ function getBaseWarmupCandles(config: IndicatorConfig): number {
           : config.maType === MAEnum.dema
             ? 2
             : 1
-      return mult * config.interval + 300
+      // the trend filter compares the MA with itself `lookback` bars back
+      const trend = config.trendFilter
+        ? Math.max(0, Math.floor(+(config.trendFilterLookback ?? 0)) || 0)
+        : 0
+      return mult * config.interval + 300 + trend
     }
     case IndicatorEnum.tv:
       return 3000
@@ -145,6 +151,19 @@ function getBaseWarmupCandles(config: IndicatorConfig): number {
       return 1000
     case IndicatorEnum.session:
       return 1500
+    case IndicatorEnum.kdj: {
+      const n = Math.max(1, Math.floor(+(config.kdjLength ?? 9) || 9))
+      return (
+        n -
+        1 +
+        kdjSettleBars(
+          Math.max(1, Math.floor(+(config.kdjKSmooth ?? 3) || 3)),
+          Math.max(1, Math.floor(+(config.kdjDSmooth ?? 3) || 3)),
+        )
+      )
+    }
+    case IndicatorEnum.vwap:
+      return VWAP_WARMUP[resolveVWAPAnchor(config.vwapAnchor)]
     default:
       // Types that have no explicit warmup in the source service fall
       // through to a generous default. Callers may still fetch more

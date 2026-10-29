@@ -5,6 +5,77 @@ All notable changes to the Gainium Technical Indicators library will be document
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.11.0] - 2026-10-29
+
+### Added
+
+- **Anchored VWAP (`VWAP`, `IndicatorEnum.vwap = 'VWAP'`).** TradingView's
+  built-in VWAP: the volume-weighted average of hlc3, restarting at the anchor
+  in UTC — `day` (default, 00:00), `week` (Monday 00:00, TradingView's crypto
+  weekly) or `month` (the 1st). Standard-deviation bands as TradingView's
+  "Standard Deviation" mode: `upper` / `lower` = vwap ± multiplier × stdev,
+  stdev = √(Σv·hlc3²/Σv − vwap²) (accumulated with West's weighted update,
+  which avoids the cancellation of squaring prices). Result `VWAPResult`
+  `{ vwap, stdev, upper, lower, price, periodStart }`. Config
+  `{ type: 'VWAP', vwapAnchor?, vwapBandMultiplier? }` (defaults day, 1).
+  Needs the candle open time: new input shape `OHLCVT`, and `feedCandle`
+  passes `t`. Decisions: the first period in the history is skipped (null)
+  unless its first candle opens exactly on the period start; a candle without
+  a time is not accumulated (the VWAP holds, `price` updates); non-positive
+  volume counts as 0 and the lines are NaN while the period has no volume.
+  Warm-up per anchor (`VWAP_WARMUP`) is one whole period plus a candle on the
+  smallest interval the anchor is normally used with — day 1441 (1m), week
+  2017 (5m), month 2977 (15m); the factory does not know the interval, so on
+  smaller intervals VWAP stays null until the next period starts. Shared
+  decision `vwapCondition(last, prev, { line, bandMultiplier, condition })`:
+  the close against `vwap` / `upper` / `lower`, `gt` / `lt` / `cu` / `cd`;
+  crossings count only within one anchor period (the restart is not a
+  crossing). The decision computes the bands from `vwap` and `stdev` with
+  its own multiplier, so the multiplier is a condition setting, not part of
+  the indicator room. Helpers `vwapLineValue`, `vwapPeriodStart`,
+  `resolveVWAPAnchor`.
+- **KDJ (`KDJ`, `IndicatorEnum.kdj = 'KDJ'`).** The formula of TradingView's
+  popular open-source "KDJ Indicator": RSV over `n` bars, K and D smoothed
+  with bcwsma (`(RSV + (m − 1)·K[1]) / m`), J = 3K − 2D. Config
+  `{ type: 'KDJ', kdjLength?, kdjKSmooth?, kdjDSmooth? }`, default 9 / 3 / 3
+  (the script's one "signal" length is exposed as two). Result
+  `KDJResult { k, d, j }`; J is not clamped. Decisions: K and D are seeded at
+  50 (the script uses 0) and nothing is emitted until the seed's weight is
+  below 1e-6 (`kdjSettleBars`; KDJ(9,3,3) warms up in 63 candles), so values
+  match the script to 1e-6 whatever the seed; a flat range (highest = lowest)
+  keeps the previous RSV (50 if none) instead of producing NaN. Shared
+  decision `kdjCondition(last, prev, settings)` offers what Stochastic offers
+  — a line (K / D / J) against another line or a fixed level, `cu` / `cd` /
+  `gt` / `lt`, and the Lower / Upper / Lower&Upper / Anywhere zone filter,
+  reading the stored `stochUpper` / `stochLower` keys exactly as the
+  Stochastic condition does. Unlike Stochastic, a single-band zone does not
+  also pass above 100 / below 0 (J goes there).
+- **DMI mode on ADX (`dmi: true`).** `new ADX(interval, ..., withDI)` /
+  config `dmi: true` adds +DI and −DI as `pdi` / `mdi` to the ADX result
+  (`ADXResult`), same length, from the first bar the ADX has a value; they
+  pass through oscillator smoothing unsmoothed. Without the flag the ADX
+  result is byte-identical to 1.10.0. Shared decision
+  `dmiCondition(last, prev, { condition })`: +DI crosses above / below −DI
+  (`cu` / `cd`), +DI above / below −DI (`gt` / `lt`).
+- **Trend filter on the Moving Average.** `IndicatorEnum.ma` accepts MAR's
+  trend filter settings with the same names and meaning (`trendFilter`,
+  `trendFilterLookback`, `trendFilterValue` in percent, `trendFilterType`
+  lower / higher / between): the MA now against the MA `lookback` bars ago.
+  With `trendFilter` on, `createIndicator` returns `MATrendFilter`, result
+  `MATrendResult { value, trend }` — `value` is the plain MA bit for bit,
+  `trend` MAR's code (1 falling / 2 rising / 3 flat when the move meets the
+  threshold, 0 when not, undefined until the lookback is filled or when the
+  filter settings are incomplete). Every MA type, McGinley and VWMA included.
+  Warm-up adds the lookback. Without `trendFilter` the factory returns the
+  plain MA and its warm-up as before. Shared gate
+  `trendFilterCondition(last, { trendFilterType })` — the engine's MAR trend
+  check, usable on MA and MAR results — and `trendFilterCode`, MAR's trend
+  arithmetic as a function.
+- **`lineCondition(condition, last, value, prev?, prevValue?)`**, the bot
+  engine's generic comparison (`gt` / `lt`; `cu` / `cd` with touching on the
+  previous bar), used by the new decisions so they fire where the engine's
+  band and Stochastic comparisons fire; and `resultNumber` (JSON null → NaN).
+
 ## [1.10.0] - 2026-10-29
 
 ### Added
@@ -202,60 +273,71 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.3.1] - 2026-06-11
 
 ### Fixed
+
 - DIV indicator logic
 
 ## [1.2.1] - 2026-04-06
 
 ### Changed
+
 - Long Wick logic
 
 ## [1.2.0] - 2026-04-03
 
 ### Added
+
 - Long Wick
 - Session
 
 ## [1.1.0] - 2025-10-09
 
 ### Added
+
 - Order Blocks & Fair Value Gaps (FVG only)
 
 ## [1.0.10] - 2025-09-23
 
 ### Fixed
+
 - QFL history
 
 ## [1.0.9] - 2025-09-05
 
 ### Fixed
+
 - QFL highest high
 
 ## [1.0.8] - 2025-08-19
 
 ### Fixed
+
 - Donchian Channels offset
 
 ## [1.0.7] - 2025-07-02
 
 ### Changed
+
 - Updated all dependencies to their latest versions
 - Updated package-lock.json with latest dependency versions
 
 ## [1.0.6] - 2025-06-30
 
 ### Changed
+
 - Migrated package manager from Yarn to npm
 - Removed yarn.lock in favor of package-lock.json
 
 ## [1.0.2] - 2025-06-02
 
 ### Fixed
+
 - **RSI**: Fixed percentile calculation by properly passing `percentilePercentage` parameter to PercentileCalculator constructor
 - RSI percentile calculations now use the correct percentage value instead of defaulting to 50th percentile
 
 ## [1.0.1] - 2025-05-30
 
 ### Fixed
+
 - **PriorPivot**: Optimized `pivotHigh` and `pivotLow` methods to remove blocking `while` loops
 - Replaced `while` loops with efficient `for` loops to prevent event blocking
 - Improved performance and reliability of pivot point calculations
@@ -263,6 +345,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.0.0] - 2025-05-29
 
 ### Added
+
 - Initial open source release
 - 45+ comprehensive technical indicators
 - LightIndicator base class architecture
@@ -275,6 +358,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Indicators Included
 
 #### Trend Following
+
 - Simple Moving Average (SMA)
 - Exponential Moving Average (EMA)
 - Weighted Moving Average (WMA)
@@ -286,6 +370,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Running Moving Average (RMA)
 
 #### Momentum & Oscillators
+
 - Relative Strength Index (RSI)
 - Stochastic Oscillator (STOCH)
 - Stochastic RSI (StochasticRSI)
@@ -297,6 +382,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Money Flow Index (MFI)
 
 #### Volatility
+
 - Average True Range (ATR)
 - True Range (TR)
 - Bollinger Bands (BBANDS)
@@ -308,6 +394,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Donchian Channels (DC)
 
 #### Trend & Signal
+
 - Moving Average Convergence Divergence (MACD)
 - Average Directional Index (ADX)
 - SuperTrend
@@ -316,16 +403,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bull/Bear Power (BullBear)
 
 #### Volume
+
 - Volume Oscillator (VO)
 - Rolling Sum (Sum)
 
 #### Support/Resistance & Levels
+
 - Support/Resistance (SupportResistance)
 - Prior Pivot Points (PriorPivot)
 - All Time High (ATH)
 - Extremum detection
 
 #### Composite & Utility
+
 - TradingView Technical Analysis (TVTA)
 - Quickfingersluc Base Finder (QFL)
 - Median Absolute Deviation (MAD)
@@ -336,6 +426,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Average Daily Range (ADR)
 
 ### Features
+
 - Memory-efficient circular buffer implementation
 - O(1) complexity for most operations
 - Complete state serialization/deserialization
@@ -344,12 +435,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Battle-tested in production trading systems
 
 ### Performance
+
 - Optimized for real-time trading applications
 - Minimal memory footprint with circular buffers
 - Efficient Float64Array usage for internal state
 - Handles thousands of instruments simultaneously
 
 ### Documentation
+
 - Comprehensive README with usage examples
 - Detailed contributing guidelines
 - Complete API documentation with JSDoc

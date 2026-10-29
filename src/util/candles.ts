@@ -1,4 +1,4 @@
-import { HL, HLC, OHLC, OHLCT, OHLCV } from '../types/candles'
+import { HL, HLC, OHLC, OHLCT, OHLCV, OHLCVT } from '../types/candles'
 
 export const hlcValue: HLC = {
   high: 0,
@@ -31,5 +31,14 @@ export const ohlctValue: OHLCT = {
   low: 0,
   close: 0,
   open: 0,
+  time: NaN,
+}
+
+export const ohlcvtValue: OHLCVT = {
+  high: 0,
+  low: 0,
+  close: 0,
+  open: 0,
+  volume: 0,
   time: NaN,
 }

@@ -79,10 +79,14 @@ export type SmoothingConfig = {
 /**
  * Result of a smoothed oscillator: `value` is the smoothed line, `raw` the
  * oscillator's own value on the same bar, `percentile` (percentile mode)
- * ranks `value`. Any `trend` the oscillator reports is passed through.
+ * ranks `value`. Any `trend` the oscillator reports is passed through, and so
+ * are ADX's `pdi` / `mdi` (unsmoothed — smoothing applies to the ADX line).
  */
 export interface SmoothedResult extends PercentileResult {
   raw: number
+  /** ADX only: +DI / −DI of the same bar, passed through unsmoothed */
+  pdi?: number
+  mdi?: number
 }
 
 /**
@@ -223,6 +227,11 @@ export class SmoothedIndicator<I = any> extends LightIndicator<
     }
     if ('trend' in r) {
       out.trend = r.trend
+    }
+    if ('pdi' in r && 'mdi' in r) {
+      const dmi = r as { pdi: number; mdi: number }
+      out.pdi = dmi.pdi
+      out.mdi = dmi.mdi
     }
     return out
   }

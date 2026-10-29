@@ -17,3 +17,5 @@ export interface OHLCV extends OHLC {
 }
 // OHLC with the candle's OPEN time (ms since epoch)
 export type OHLCT = OHLC & { time: number }
+// OHLCV with the candle's OPEN time (ms since epoch)
+export type OHLCVT = OHLCV & { time: number }
