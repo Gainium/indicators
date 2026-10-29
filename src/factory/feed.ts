@@ -11,12 +11,14 @@
  *                              McGinley
  *   - `{high, low, close}`   → ADX, Stoch, CCI, StochRSI, WR, UO, IC,
  *                              SupportResistance, QFL, PSAR, SuperTrend,
- *                              ATR, PriorPivot, ADR, ATH, KDJ
+ *                              ATR, PriorPivot, ADR, ATH, KDJ, Squeeze
  *   - `{open, high, low, close}` → BullBear, MOM, ECD, DonchianChannels,
- *                                  OBFVG, LongWick, OTELevels
+ *                                  OBFVG, LongWick, OTELevels, Candle
  *   - `{open, high, low, close, time}` → SessionLevels (`time` = `t`; a
  *                                        candle without `t` is not grouped
- *                                        into any session)
+ *                                        into any session), OrderBlocks
+ *                                        (`time` = block id; without `t`
+ *                                        the bar index is the id)
  *   - `{open, high, low, close, volume}` → VWMA, TVTA, MFI, BBW, BB, KC,
  *                                          KCPB, BBWP, BBPB, MAR, DIV, PC,
  *                                          MATrendFilter (MA + trend filter)
@@ -40,6 +42,7 @@ import { BollingerBands } from '../BBANDS/BollingerBands'
 import { BollingerBandsWidth } from '../BBW/BollingerBandsWidth'
 import { BullBear } from '../BullBear/BullBear'
 import { CCI } from '../CCI/CCI'
+import { Candle } from '../Candle/Candle'
 import { DEMA } from '../DEMA/DEMA'
 import { DIV } from '../DIV/DIV'
 import { DonchianChannels } from '../DC/DonchianChannels'
@@ -58,6 +61,7 @@ import { MFI } from '../MFI/MFI'
 import { MOM } from '../MOM/MOM'
 import { OBFVG } from '../OBFVG/OBFVG'
 import { OTELevels } from '../OTE/OTE'
+import { OrderBlocks } from '../OB/OrderBlocks'
 import { PC } from '../PC/PC'
 import { PSAR } from '../PSAR/PSAR'
 import { PriorPivot } from '../PriorPivot/PP'
@@ -67,6 +71,7 @@ import { McGinley } from '../McGinley/McGinley'
 import { RSI } from '../RSI/RSI'
 import { SMA } from '../SMA/SMA'
 import { SessionLevels } from '../Session/Session'
+import { Squeeze } from '../SQZ/Squeeze'
 import { StochasticOscillator } from '../STOCH/StochasticOscillator'
 import { StochasticRSI } from '../STOCH/StochasticRSI'
 import { SuperTrend } from '../SuperTrend/SuperTrend'
@@ -153,7 +158,8 @@ function candleInput(indicator: any, candle: FeedCandle): unknown {
     indicator instanceof PriorPivot ||
     indicator instanceof ADR ||
     indicator instanceof ATH ||
-    indicator instanceof KDJ
+    indicator instanceof KDJ ||
+    indicator instanceof Squeeze
   ) {
     return { high: candle.h, low: candle.l, close: candle.c }
   }
@@ -166,7 +172,8 @@ function candleInput(indicator: any, candle: FeedCandle): unknown {
     indicator instanceof DonchianChannels ||
     indicator instanceof OBFVG ||
     indicator instanceof LongWick ||
-    indicator instanceof OTELevels
+    indicator instanceof OTELevels ||
+    indicator instanceof Candle
   ) {
     return {
       open: candle.o,
@@ -177,7 +184,7 @@ function candleInput(indicator: any, candle: FeedCandle): unknown {
   }
 
   // OHLC + open time
-  if (indicator instanceof SessionLevels) {
+  if (indicator instanceof SessionLevels || indicator instanceof OrderBlocks) {
     return {
       open: candle.o,
       high: candle.h,

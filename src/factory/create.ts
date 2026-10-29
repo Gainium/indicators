@@ -22,6 +22,8 @@ import {
   BollingerBandsWidth,
   BullBear,
   CCI,
+  CandleSourceEnum,
+  Candle,
   DEMA,
   DIV,
   DIVUsableOscillators,
@@ -41,6 +43,7 @@ import {
   MOM,
   OBFVG,
   OTELevels,
+  OrderBlocks,
   PC,
   PSAR,
   PriorPivot,
@@ -49,8 +52,11 @@ import {
   McGinley,
   RSI,
   SMA,
+  resolveOBSwingLength,
+  resolveSqueezeSettings,
   SessionLevels,
   SessionRuleEnum,
+  Squeeze,
   StochasticOscillator,
   StochasticRSI,
   SuperTrend,
@@ -414,6 +420,22 @@ function createBaseIndicator(config: IndicatorConfig): any {
         end: config.sessionEnd,
         timezone: config.sessionTimezone,
       })
+
+    case IndicatorEnum.candle:
+      return new Candle(config.source ?? CandleSourceEnum.heikinAshi)
+
+    case IndicatorEnum.ob:
+      return new OrderBlocks(resolveOBSwingLength(config.swingLength))
+
+    case IndicatorEnum.sqz: {
+      const r = resolveSqueezeSettings(
+        config.length,
+        config.bbMult,
+        config.kcLength,
+        config.kcMult,
+      )
+      return new Squeeze(r.length, r.bbMult, r.kcLength, r.kcMult)
+    }
 
     default:
       return null

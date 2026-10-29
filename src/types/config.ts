@@ -1,5 +1,6 @@
 import { DEMA } from '../DEMA/DEMA'
 import { EMA } from '../EMA/EMA'
+import { CandleSourceEnum } from '../Candle/Candle'
 import { SessionRuleEnum } from '../Session/Session'
 import { VWAPAnchorEnum } from '../VWAP/VWAP'
 
@@ -68,6 +69,9 @@ export enum IndicatorEnum {
   ote = 'OTE',
   kdj = 'KDJ',
   vwap = 'VWAP',
+  candle = 'CANDLE',
+  ob = 'OB',
+  sqz = 'SQZ',
 }
 
 /** Moving-average variants. Consumed by `ma` / `bb` / `bbw` / `mar` / `kc`. */
@@ -164,6 +168,24 @@ export type IndicatorConfig =
       vwapBandMultiplier?: number
     }
   | { type: IndicatorEnum.ote; oteLeftBars: number; oteMinLegSize: number }
+  | {
+      // Candle colour: regular candle or Heikin Ashi (default)
+      type: IndicatorEnum.candle
+      source?: CandleSourceEnum | string
+    }
+  | {
+      // Order Blocks: pivot bars on each side of a swing (default 5)
+      type: IndicatorEnum.ob
+      swingLength?: number
+    }
+  | {
+      // Squeeze Momentum (LazyBear): BB 20 × 2, KC 20 × 1.5 by default
+      type: IndicatorEnum.sqz
+      length?: number
+      bbMult?: number
+      kcLength?: number
+      kcMult?: number
+    }
   | {
       // Only the Price levels rule has an indicator instance; the in / out
       // rules are pure clock filters (`isInSession`) with no factory entry.

@@ -364,6 +364,16 @@ export const sessionLevelValue = (
   }
 }
 
+/** On which candles a Price levels condition is evaluated. */
+export enum SessionLevelsActiveEnum {
+  /** only inside the session (the behaviour before `active` existed) */
+  session = 'session',
+  /** only outside the session (e.g. the Monday range on the other days) */
+  outside = 'outside',
+  /** inside and outside the session */
+  always = 'always',
+}
+
 export type SessionLevelsConditionSettings = {
   /** left operand; missing = price */
   a?: SessionLevelEnum | string
@@ -371,6 +381,8 @@ export type SessionLevelsConditionSettings = {
   b?: SessionLevelEnum | string
   /** 'cd' | 'cu' | 'gt' | 'lt'; missing = 'cu' */
   condition?: string
+  /** where the condition is evaluated; missing / unknown = session */
+  active?: SessionLevelsActiveEnum | string | null
 }
 
 /** Both keys are the same session, treating "none" (NaN) as equal to "none". */
@@ -381,21 +393,38 @@ const sameKey = (a: number, b: number) => a === b || (isNaN(a) && isNaN(b))
  * the live engine and the backtester so both fire on the same bars. `last`
  * is the newest bar, `prev` the one before it (only needed for crossings).
  *
- * - False outside the session (`last.inSession` is not 1).
+ * - `active` decides where it is evaluated: `session` (missing / unknown)
+ *   only on candles inside the session (`last.inSession` is 1), `outside`
+ *   only on candles outside it, `always` on both. Elsewhere it is false.
+ *   Outside a session the previous-session levels are those of the last
+ *   completed session and the current-session levels (`curOpen`, `curMid`)
+ *   have no value, so a condition reading them is false there.
  * - False when either operand has no value (NaN / null) or A and B are the
  *   same field.
  * - `gt` / `lt`: A is above / below B on `last`.
  * - `cd` / `cu`: A crossed down / up through B between `prev` and `last`
- *   (touching counts on `last`), and only when both bars are in the SAME
- *   session and see the SAME previous session — the levels jumping because a
- *   new session started is not a crossing.
+ *   (touching counts on `last`), and only when both bars see the SAME
+ *   previous session and are in the same place: the SAME session, or both
+ *   outside any session — the levels jumping because a session started or
+ *   ended is not a crossing. A candle without a time counts as outside.
  */
 export const sessionLevelsCondition = (
   last: SessionLevelsResult | null | undefined,
   prev: SessionLevelsResult | null | undefined,
   settings: SessionLevelsConditionSettings,
 ): boolean => {
-  if (!last || num(last.inSession) !== 1) {
+  if (!last) {
+    return false
+  }
+  const active = settings.active
+  const lastIn = num(last.inSession) === 1
+  if (
+    active === SessionLevelsActiveEnum.always
+      ? false
+      : active === SessionLevelsActiveEnum.outside
+        ? lastIn
+        : !lastIn
+  ) {
     return false
   }
   const a = settings.a ?? SessionLevelEnum.price
@@ -418,13 +447,18 @@ export const sessionLevelsCondition = (
   if (condition !== 'cd' && condition !== 'cu') {
     return false
   }
-  if (
-    !prev ||
-    num(prev.inSession) !== 1 ||
-    isNaN(num(last.sessionKey)) ||
-    num(prev.sessionKey) !== num(last.sessionKey) ||
-    !sameKey(num(prev.prevSessionKey), num(last.prevSessionKey))
-  ) {
+  if (!prev || !sameKey(num(prev.prevSessionKey), num(last.prevSessionKey))) {
+    return false
+  }
+  if (lastIn) {
+    if (
+      num(prev.inSession) !== 1 ||
+      isNaN(num(last.sessionKey)) ||
+      num(prev.sessionKey) !== num(last.sessionKey)
+    ) {
+      return false
+    }
+  } else if (num(prev.inSession) === 1) {
     return false
   }
   const prevA = sessionLevelValue(prev, a)

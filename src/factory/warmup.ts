@@ -15,6 +15,9 @@ import {
   Smoothing,
 } from '../types/config'
 import { kdjSettleBars } from '../KDJ/KDJ'
+import { CANDLE_WARMUP } from '../Candle/Candle'
+import { OB_WARMUP } from '../OB/OrderBlocks'
+import { resolveSqueezeSettings, squeezeWarmup } from '../SQZ/Squeeze'
 import { VWAP_WARMUP, resolveVWAPAnchor } from '../VWAP/VWAP'
 import {
   getSmoothingWarmup,
@@ -164,6 +167,19 @@ function getBaseWarmupCandles(config: IndicatorConfig): number {
     }
     case IndicatorEnum.vwap:
       return VWAP_WARMUP[resolveVWAPAnchor(config.vwapAnchor)]
+    case IndicatorEnum.candle:
+      return CANDLE_WARMUP
+    case IndicatorEnum.ob:
+      return OB_WARMUP
+    case IndicatorEnum.sqz: {
+      const r = resolveSqueezeSettings(
+        config.length,
+        config.bbMult,
+        config.kcLength,
+        config.kcMult,
+      )
+      return squeezeWarmup(r.length, r.kcLength)
+    }
     default:
       // Types that have no explicit warmup in the source service fall
       // through to a generous default. Callers may still fetch more

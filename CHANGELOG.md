@@ -5,6 +5,66 @@ All notable changes to the Gainium Technical Indicators library will be document
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.12.0] - 2026-10-29
+
+### Added
+
+- **Candle colour (`Candle`, `IndicatorEnum.candle = 'CANDLE'`).** The colour
+  of the latest closed candle — regular or Heikin Ashi (TradingView's
+  built-in formula: haClose = ohlc4, haOpen = average of the previous
+  haOpen / haClose, seeded on the first candle as (open + close) / 2) — and
+  a signed streak (+3 = three green in a row, −2 = two red, 0 on a doji;
+  capped at ±1000). Green = close > open, red = close < open, equal = doji
+  (compared exactly). Config `{ type: 'CANDLE', source? }` (`regular` |
+  `heikinAshi`, default heikinAshi). Result `CandleResult { color, streak,
+  open, high, low, close }` — the candle the colour is read from. Heikin Ashi
+  is null for the first 29 candles (seed weight below 2^-30) and counts the
+  streak from the 30th. Factory warm-up `CANDLE_WARMUP` = 81 (30 to settle +
+  51 counted candles, so the streak is exact for every count up to 50).
+  Shared decision `candleCondition(last, prev, { color, count, trigger })`:
+  `streak` → streak ≥ N (green) / ≤ −N (red); `start` → exactly N, once per
+  run; a doji never fires; missing / invalid count = 1.
+- **Order Blocks (`OrderBlocks`, `IndicatorEnum.ob = 'OB'`).** LuxAlgo-style,
+  non-repainting: swings are pivots with `swingLength` bars on both sides
+  (confirmed that many bars later); a close above the latest unbroken swing
+  high forms a bullish block = the lowest-low candle from the swing bar to
+  the breaking candle (ties → latest), zone `[low, high]`, and uses the swing
+  up; bearish is the mirror. A block is mitigated by a close beyond it (below
+  a bullish bottom, above a bearish top); only the latest unmitigated block
+  per side is kept, and the search reaches back at most 500 bars. Config
+  `{ type: 'OB', swingLength? }` (default 5). Result `OrderBlockResult
+  { bullishTop, bullishBottom, bullishId, bearishTop, bearishBottom,
+  bearishId, price }` — NaN without an active block; the id is the breaking
+  candle's open time (bar index without `t`). Input OHLC + time: `feedCandle`
+  passes `t`. Explicit exportState / restoreState. Warm-up `OB_WARMUP` =
+  1000. Shared decision `orderBlockCondition(last, prev, { side, level,
+  condition })`: close vs top / middle / bottom of the bullish / bearish
+  block; `cu` / `cd` only when both bars carry the same block id. Helper
+  `orderBlockLevel`.
+- **Squeeze Momentum (`Squeeze`, `IndicatorEnum.sqz = 'SQZ'`).** LazyBear's
+  corrected v2 with true range on: BB = sma ± bbMult × population stdev, KC =
+  sma ± kcMult × sma(true range) (first bar TR = high − low); squeeze 1 (BB
+  inside KC), −1 (BB outside KC), 0 otherwise; momentum = linreg end point of
+  close − avg(avg(highest, lowest), sma) over kcLength. Every window is
+  summed directly (no rolling-sum drift); cross-checked against an
+  array-based transcription of the Pine script. Config `{ type: 'SQZ',
+  length?, bbMult?, kcLength?, kcMult? }` (default 20 / 2 / 20 / 1.5). Result
+  `SqueezeResult { momentum, squeeze }`. Warm-up 2 × max(length, kcLength).
+  Shared decision `squeezeCondition(last, prev, { signal, momentum })`:
+  `fired` / `on` / `off` / `any` AND `positive` / `negative` / `rising` /
+  `falling` / `crossUp` / `crossDown` / `any`; both `any` never fires.
+  Helper `linregEnd`.
+- **Session Price levels outside the session.** `sessionLevelsCondition`
+  settings take `active` (`SessionLevelsActiveEnum`: `session` | `outside` |
+  `always`). `outside` / `always` also evaluate candles outside the session,
+  where the previous-session levels are those of the last completed session
+  and the current-session levels are absent (false if read). A crossing needs
+  both candles to see the same previous session and be in the same place —
+  the same session, or both outside. Missing / unknown `active` is
+  byte-identical to 1.11.0 (proved against the old function on a random
+  walk). Enables the Monday range: days = Monday, Price levels, active
+  outside, price crossing up the previous session high.
+
 ## [1.11.0] - 2026-10-29
 
 ### Added

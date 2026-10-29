@@ -202,3 +202,45 @@ export type MATrendResult = {
   value: number
   trend?: number
 }
+
+/**
+ * Candle colour of `Candle` after the latest candle. `color` is 1 (green,
+ * close > open), −1 (red, close < open) or 0 (doji); `streak` the signed
+ * length of the current run (+3 = three green in a row, 0 on a doji, capped
+ * at ±1000). open / high / low / close are the candle the colour is read
+ * from — the Heikin Ashi values for the heikinAshi source.
+ */
+export type CandleResult = {
+  color: number
+  streak: number
+  open: number
+  high: number
+  low: number
+  close: number
+}
+
+/**
+ * Latest unmitigated order block per side of `OrderBlocks`. Zone fields are
+ * NaN when a side has no active block; `*Id` is the open time (or bar index
+ * without a time) of the candle that broke structure and formed the block —
+ * a different id is a different block. `price` is the latest close.
+ */
+export type OrderBlockResult = {
+  bullishTop: number
+  bullishBottom: number
+  bullishId: number
+  bearishTop: number
+  bearishBottom: number
+  bearishId: number
+  price: number
+}
+
+/**
+ * Squeeze Momentum of `Squeeze`: `momentum` is the linreg end point of the
+ * momentum source, `squeeze` 1 (BB inside KC: on), −1 (BB outside KC: off)
+ * or 0 (neither).
+ */
+export type SqueezeResult = {
+  momentum: number
+  squeeze: number
+}
