@@ -9,6 +9,7 @@ import { TEMA } from '../TEMA/TEMA'
 import { VWMA } from '../VWMA/VWMA'
 import { HMA } from '../HMA/HMA'
 import { RMA } from '../RMA/RMA'
+import { McGinley } from '../McGinley/McGinley'
 import {
   CircularArrayState,
   Float64CircularArray,
@@ -18,7 +19,7 @@ import {
 } from '../util'
 
 // Define type for supported moving average indicators
-type MaIndicator = EMA | SMA | WMA | DEMA | TEMA | VWMA | HMA | RMA
+type MaIndicator = EMA | SMA | WMA | DEMA | TEMA | VWMA | HMA | RMA | McGinley
 
 // Define state indices for performance and readability
 enum MARState {
@@ -41,7 +42,8 @@ enum MARState {
  * ratios instead of absolute differences, MAR provides consistent signals across various
  * market conditions and price ranges.
  *
- * The indicator supports all major moving average types (EMA, SMA, WMA, DEMA, TEMA, VWMA, HMA, RMA)
+ * The indicator supports all major moving average types (EMA, SMA, WMA, DEMA, TEMA, VWMA, HMA, RMA,
+ * McGinley)
  * and can compare:
  * - Fast MA vs Slow MA (traditional ribbon analysis)
  * - MA vs Current Price (price momentum relative to trend)
@@ -91,7 +93,8 @@ export class MAR extends LightIndicator<PercentileResult, OHLCV> {
   /**
    * Creates a new Moving Average Ribbon (MAR) indicator
    *
-   * @param ma1Type Type of first moving average ('EMA', 'SMA', 'WMA', 'DEMA', 'TEMA', 'VWMA', 'HMA', 'RMA').
+   * @param ma1Type Type of first moving average ('EMA', 'SMA', 'WMA', 'DEMA', 'TEMA', 'VWMA', 'HMA', 'RMA',
+   *                'MCGINLEY'), in either case.
    *                This becomes the denominator in the ratio calculation. Typically the longer-period MA.
    * @param ma1Interval Period for first moving average (typically 20-50 for longer-term trend).
    *                    Common values: 21, 26, 50 for different trend timeframes.
@@ -184,6 +187,8 @@ export class MAR extends LightIndicator<PercentileResult, OHLCV> {
         return new HMA(interval)
       case 'RMA':
         return new RMA(interval)
+      case 'MCGINLEY':
+        return new McGinley(interval)
       default:
         return new EMA(interval)
     }

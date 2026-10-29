@@ -44,6 +44,7 @@ import {
   PriorPivot,
   QFL,
   RMA,
+  McGinley,
   RSI,
   SMA,
   SessionLevels,
@@ -365,6 +366,8 @@ function createBaseIndicator(config: IndicatorConfig): any {
           return new TEMA(config.interval)
         case MAEnum.rma:
           return new RMA(config.interval)
+        case MAEnum.mcginley:
+          return new McGinley(config.interval)
         default:
           return null
       }

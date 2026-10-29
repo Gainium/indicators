@@ -7,7 +7,8 @@
  *
  * Input-shape taxonomy (matching the live service):
  *   - `number` (volume)     → VO
- *   - `number` (close)       → RSI, MACD, EMA, DEMA, TEMA, RMA, SMA, WMA, HMA
+ *   - `number` (close)       → RSI, MACD, EMA, DEMA, TEMA, RMA, SMA, WMA, HMA,
+ *                              McGinley
  *   - `{high, low, close}`   → ADX, Stoch, CCI, StochRSI, WR, UO, IC,
  *                              SupportResistance, QFL, PSAR, SuperTrend,
  *                              ATR, PriorPivot, ADR, ATH
@@ -56,6 +57,7 @@ import { PSAR } from '../PSAR/PSAR'
 import { PriorPivot } from '../PriorPivot/PP'
 import { QFL } from '../QFL/QFL'
 import { RMA } from '../RMA/RMA'
+import { McGinley } from '../McGinley/McGinley'
 import { RSI } from '../RSI/RSI'
 import { SMA } from '../SMA/SMA'
 import { SessionLevels } from '../Session/Session'
@@ -117,6 +119,7 @@ function candleInput(indicator: any, candle: FeedCandle): unknown {
     indicator instanceof DEMA ||
     indicator instanceof TEMA ||
     indicator instanceof RMA ||
+    indicator instanceof McGinley ||
     indicator instanceof SMA ||
     indicator instanceof WMA ||
     indicator instanceof HMA

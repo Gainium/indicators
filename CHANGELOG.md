@@ -5,6 +5,21 @@ All notable changes to the Gainium Technical Indicators library will be document
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.10.0] - 2026-10-29
+
+### Added
+
+- **McGinley Dynamic moving average (`MAEnum.mcginley`).** A new MA type for
+  the Moving Average indicator and the Moving Average Ratio legs: a line that
+  moves toward price by `(price − MD[1]) / (n × (price / MD[1])^4)`, so it
+  catches up faster when price runs away from it and falls faster than it
+  rises. Seeded like TradingView's built-in, with the simple average of the
+  first `n` inputs, and matches it from there. Gaps (a missing, zero or
+  negative input) show as NaN and the line starts over, as EMA does.
+  `McGinley` is exported, built by `createIndicator`, warmed up like the other
+  MA types and fed by `feedCandle`. Not offered as smoothing or as a Bollinger
+  basis.
+
 ## [1.9.1] - 2026-10-25
 
 ### Fixed
