@@ -179,7 +179,7 @@ export type IndicatorConfig =
       swingLength?: number
     }
   | {
-      // Squeeze Momentum (LazyBear): BB 20 × 2, KC 20 × 1.5 by default
+      // Squeeze Momentum (LazyBear): BB 20 × 1.5, KC 20 × 1.5 by default
       type: IndicatorEnum.sqz
       length?: number
       bbMult?: number

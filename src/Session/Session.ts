@@ -388,6 +388,19 @@ export type SessionLevelsConditionSettings = {
 /** Both keys are the same session, treating "none" (NaN) as equal to "none". */
 const sameKey = (a: number, b: number) => a === b || (isNaN(a) && isNaN(b))
 
+const PREV_LEVELS: string[] = [
+  SessionLevelEnum.prevOpen,
+  SessionLevelEnum.prevHigh,
+  SessionLevelEnum.prevMid,
+  SessionLevelEnum.prevLow,
+  SessionLevelEnum.prevClose,
+]
+
+/** One operand is the price and the other a previous-session level. */
+const isPriceVsPrevLevel = (a: string, b: string) =>
+  (a === SessionLevelEnum.price && PREV_LEVELS.includes(b)) ||
+  (b === SessionLevelEnum.price && PREV_LEVELS.includes(a))
+
 /**
  * The bot-condition decision of the Session "Price levels" rule, shared by
  * the live engine and the backtester so both fire on the same bars. `last`
@@ -407,6 +420,12 @@ const sameKey = (a: number, b: number) => a === b || (isNaN(a) && isNaN(b))
  *   previous session and are in the same place: the SAME session, or both
  *   outside any session — the levels jumping because a session started or
  *   ended is not a crossing. A candle without a time counts as outside.
+ *   One exception (`outside` / `always` only, since 1.14.0): on the FIRST
+ *   candle after a session ends — `prev` inside the session that `last`
+ *   now reports as its previous session — a pairing of `price` with a
+ *   `prev*` level is a crossing when the two closes are on opposite sides
+ *   of the level `last` sees (e.g. the Monday range broken on the first
+ *   hour of Tuesday). Any other pairing stays false on that candle.
  */
 export const sessionLevelsCondition = (
   last: SessionLevelsResult | null | undefined,
@@ -447,7 +466,39 @@ export const sessionLevelsCondition = (
   if (condition !== 'cd' && condition !== 'cu') {
     return false
   }
-  if (!prev || !sameKey(num(prev.prevSessionKey), num(last.prevSessionKey))) {
+  if (!prev) {
+    return false
+  }
+  if (
+    !lastIn &&
+    num(prev.inSession) === 1 &&
+    !isNaN(num(prev.sessionKey)) &&
+    num(prev.sessionKey) === num(last.prevSessionKey) &&
+    isPriceVsPrevLevel(a, b)
+  ) {
+    // The first candle after a session ends (only reachable with `outside`
+    // / `always`): `prev` is the session's last candle and that session has
+    // just become the previous session, so every `prev*` level jumped
+    // between the two bars. Comparing each bar with its own level would
+    // either never fire (today's rule) or fire on the jump itself. Instead
+    // both closes are compared with the ONE level the newest bar sees: the
+    // price side is read from each bar, the level side from `last` only.
+    // The jump cannot create a false crossing: the level is constant across
+    // the test, and `prev` is a candle of that session, so its close lies
+    // within the session's low / high — at or below `prevHigh` and at or
+    // above `prevLow` (equal to `prevClose`, so that one never crosses
+    // here). A crossing therefore needs the newest close to really move
+    // through the completed session's level, as a chart crossover would.
+    const prevA = a === SessionLevelEnum.price ? num(prev.price) : lastA
+    const prevB = b === SessionLevelEnum.price ? num(prev.price) : lastB
+    if (isNaN(prevA) || isNaN(prevB)) {
+      return false
+    }
+    return condition === 'cd'
+      ? gt(prevA, prevB) && lte(lastA, lastB)
+      : lt(prevA, prevB) && gte(lastA, lastB)
+  }
+  if (!sameKey(num(prev.prevSessionKey), num(last.prevSessionKey))) {
     return false
   }
   if (lastIn) {

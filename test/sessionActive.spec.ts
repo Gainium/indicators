@@ -191,19 +191,33 @@ describe('sessionLevelsCondition active', () => {
       expect(r[7].prevSessionKey).to.equal(20260907)
     })
 
-    it('outside: fires on the out-of-session crossing only', () => {
+    it('outside: fires on the out-of-session crossings only', () => {
       const s = { ...up, active: SessionLevelsActiveEnum.outside }
       const fires = r
         .map((_, i) => (i > 0 && cond(i, s) ? i : -1))
         .filter((i) => i >= 0)
-      expect(fires).to.deep.equal([6])
+      // 4 = Tue 00:00 breaking the Monday high from the last Monday candle
+      // (1.14.0; before, [6] only)
+      expect(fires).to.deep.equal([4, 6])
       const down = { ...s, condition: 'cd' }
       expect(cond(7, down)).to.equal(true)
     })
 
-    it('a session ending is not a crossing (prev inside, last outside)', () => {
-      expect(cond(4, { ...up, active: 'outside' })).to.equal(false)
-      expect(cond(4, { ...up, active: 'always' })).to.equal(false)
+    it('the first candle after the session crosses against the new level (1.14.0)', () => {
+      // prev = last Monday candle (109.5, inside), last = Tue 00:00 (112):
+      // 109.5 < 110 (the Monday high last sees) <= 112 — a real breakout
+      expect(cond(4, { ...up, active: 'outside' })).to.equal(true)
+      expect(cond(4, { ...up, active: 'always' })).to.equal(true)
+      expect(cond(4, up)).to.equal(false)
+      // two levels that both jumped are never a crossing there
+      expect(
+        cond(4, {
+          a: 'prevHigh',
+          b: 'prevLow',
+          condition: 'cu',
+          active: 'always',
+        }),
+      ).to.equal(false)
     })
 
     it('a session starting is not a crossing (prev outside, last inside)', () => {

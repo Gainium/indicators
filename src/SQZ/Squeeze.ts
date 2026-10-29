@@ -49,7 +49,7 @@ export const resolveSqueezeSettings = (
   kcMult?: number | string | null,
 ) => ({
   length: wholeLength(length, 20),
-  bbMult: positive(bbMult, 2),
+  bbMult: positive(bbMult, 1.5),
   kcLength: wholeLength(kcLength, 20),
   kcMult: positive(kcMult, 1.5),
 })
@@ -84,8 +84,10 @@ export const squeezeWarmup = (length: number, kcLength: number): number =>
  * Every window is summed directly (no rolling sums), so values do not drift
  * on long streams. `null` until both the bands and the momentum exist.
  *
- * The TradingView script displays with the BB multiplier stuck at 1.5; set
- * `bbMult` 1.5 to match its chart.
+ * The default BB multiplier is 1.5 (since 1.14.0; 2 before): the script
+ * TradingView displays has the BB multiplier stuck at 1.5 (its KC
+ * multiplier), so 1.5 matches its chart. Pass `bbMult` 2 for the corrected
+ * v2's own default.
  *
  * Candle Input Type: HLC
  */
@@ -105,13 +107,13 @@ export class Squeeze extends LightIndicator<SqueezeResult, HLC> {
 
   /**
    * @param length - BB length (default 20)
-   * @param bbMult - BB multiplier (default 2)
+   * @param bbMult - BB multiplier (default 1.5)
    * @param kcLength - KC length, also the momentum length (default 20)
    * @param kcMult - KC multiplier (default 1.5)
    */
   constructor(
     length: number = 20,
-    bbMult: number = 2,
+    bbMult: number = 1.5,
     kcLength: number = 20,
     kcMult: number = 1.5,
   ) {

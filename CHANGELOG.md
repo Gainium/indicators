@@ -5,6 +5,26 @@ All notable changes to the Gainium Technical Indicators library will be document
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.14.0] - 2026-10-29
+
+### Changed
+
+- **Session Price levels: crossing on the first candle after the session.**
+  With `active` `outside` or `always`, `sessionLevelsCondition` now also
+  decides a `cu` / `cd` crossing on the first candle after a session ends
+  (`prev` inside the session that `last` reports as `prevSessionKey`), when
+  one operand is `price` and the other a `prev*` level: both closes are
+  compared with the level the newest candle sees. Before, no crossing could
+  fire on that candle, so a Monday range broken on the first hour of Tuesday
+  was missed. The level jump cannot fake a crossing: the session's last close
+  is within the session's high / low (and equals `prevClose`). Every other
+  pairing, and `active` `session` / missing (the default), decide exactly as
+  in 1.13.0.
+- **Squeeze Momentum: default BB multiplier 1.5 (was 2).**
+  `resolveSqueezeSettings`, the `Squeeze` constructor and the factory now
+  default `bbMult` to 1.5, which matches the Squeeze Momentum chart
+  TradingView displays. A config that passes `bbMult` is unchanged.
+
 ## [1.13.0] - 2026-10-29
 
 ### Added

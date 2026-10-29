@@ -177,7 +177,7 @@ describe('Squeeze', () => {
   it('falls back to the defaults for invalid settings', () => {
     const s = new Squeeze(0, -1, NaN, 0)
     expect([s.length, s.bbMult, s.kcLength, s.kcMult]).to.deep.equal([
-      20, 2, 20, 1.5,
+      20, 1.5, 20, 1.5,
     ])
     const t = new Squeeze(7.9, 2.5, 3.2, 0.5)
     expect([t.length, t.bbMult, t.kcLength, t.kcMult]).to.deep.equal([
@@ -263,7 +263,7 @@ describe('Squeeze', () => {
     ])
     const def = createIndicator({ type: IndicatorEnum.sqz })
     expect([def.length, def.bbMult, def.kcLength, def.kcMult]).to.deep.equal([
-      20, 2, 20, 1.5,
+      20, 1.5, 20, 1.5,
     ])
     expect(getWarmupCandles({ type: IndicatorEnum.sqz })).to.equal(40)
     expect(
